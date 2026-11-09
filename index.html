@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Noordpool · 90° N — Kerstavond in 3D</title>
+  <link rel="stylesheet" href="./style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <div class="loading-card">
+      <div class="loading-pole-icon"></div>
+      <h1>NOORDPOOL · 90° N</h1>
+      <p>Kerstavond-scène en procedurele shaders worden opgebouwd…</p>
+    </div>
+  </div>
+
+  <!-- Minimal HUD -->
+  <header id="hud-top">
+    <div class="hud-pill hud-instructions">
+      <strong>Noordpool · 90° N</strong>
+      <span>Sleep: rondkijken · Scroll: zoom · Klik: interactie · <em>Dubbelklik: vlieg naar object (Esc = terug)</em></span>
+    </div>
+
+    <div class="hud-controls">
+      <div class="hud-pill quality-group" role="group" aria-label="Kwaliteit">
+        <span class="hud-label">Kwaliteit:</span>
+        <button type="button" data-quality="low">Laag</button>
+        <button type="button" data-quality="medium">Midden</button>
+        <button type="button" data-quality="high" class="active">Hoog</button>
+      </div>
+
+      <button type="button" id="btn-fps" class="hud-pill hud-btn" title="Toets F">
+        FPS (F)
+      </button>
+
+      <span id="fps-counter" class="hud-pill fps-badge" style="display: none;">60 FPS</span>
+
+      <button type="button" id="btn-audio" class="hud-pill hud-btn">
+        🔇 Geluid: Uit
+      </button>
+    </div>
+  </header>
+
+  <!-- Floating 3D Click Tooltip & Hover Label -->
+  <div id="scene-tooltip" role="status" aria-live="polite"></div>
+  <div id="hover-tooltip" aria-hidden="true"></div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

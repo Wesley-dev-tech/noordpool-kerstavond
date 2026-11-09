@@ -1,0 +1,246 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #040816;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #f0f6ff;
+  user-select: none;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+#app canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Loading Screen */
+#loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, #102347 0%, #040816 80%);
+  transition: opacity 0.8s ease;
+}
+
+#loading-screen.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-card {
+  text-align: center;
+  padding: 2.2rem 3rem;
+  border-radius: 18px;
+  background: rgba(10, 23, 48, 0.72);
+  border: 1px solid rgba(184, 212, 255, 0.25);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+}
+
+.loading-pole-icon {
+  width: 22px;
+  height: 68px;
+  margin: 0 auto 1rem;
+  border-radius: 11px;
+  background: repeating-linear-gradient(
+    -45deg,
+    #d92027,
+    #d92027 10px,
+    #f7f9fc 10px,
+    #f7f9fc 20px
+  );
+  position: relative;
+  box-shadow: 0 0 18px rgba(255, 204, 51, 0.55);
+}
+
+.loading-pole-icon::before {
+  content: '';
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff6b3, #ffcc33 65%, #b37700);
+  box-shadow: 0 0 14px #ffcc33;
+}
+
+.loading-card h1 {
+  font-size: 1.5rem;
+  letter-spacing: 0.14em;
+  color: #ffcc33;
+  margin-bottom: 0.5rem;
+}
+
+.loading-card p {
+  font-size: 0.92rem;
+  color: #b8d4ff;
+}
+
+/* HUD Top Bar */
+#hud-top {
+  position: fixed;
+  top: 8px;
+  left: 10px;
+  right: 10px;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.hud-pill {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(8, 18, 38, 0.34);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(184, 212, 255, 0.14);
+  font-size: 0.74rem;
+  color: rgba(228, 240, 255, 0.88);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.hud-pill:hover {
+  background: rgba(8, 18, 38, 0.56);
+  border-color: rgba(184, 212, 255, 0.26);
+  color: #f0f6ff;
+}
+
+.hud-instructions strong {
+  color: #ffcc33;
+  letter-spacing: 0.03em;
+}
+
+.hud-instructions em {
+  color: #8ce8ff;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.hud-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud-label {
+  color: #9ec0eb;
+  font-size: 0.72rem;
+}
+
+.quality-group button,
+.hud-btn {
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: #dceaff;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.hud-btn {
+  padding: 4px 10px;
+  background: rgba(8, 18, 38, 0.34);
+  border: 1px solid rgba(184, 212, 255, 0.14);
+}
+
+.quality-group button:hover,
+.hud-btn:hover {
+  background: rgba(184, 212, 255, 0.22);
+  color: #ffffff;
+}
+
+.quality-group button.active,
+.hud-btn.active {
+  background: #ffcc33;
+  color: #141a29;
+  box-shadow: 0 0 12px rgba(255, 204, 51, 0.5);
+}
+
+.fps-badge {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-weight: 700;
+  color: #22ff99;
+}
+
+/* Floating 3D Tooltip */
+#scene-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 30;
+  pointer-events: none;
+  padding: 7px 14px;
+  border-radius: 10px;
+  background: rgba(10, 20, 42, 0.88);
+  border: 1px solid #ffcc33;
+  color: #fff6d6;
+  font-size: 0.86rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55), 0 0 14px rgba(255, 204, 51, 0.35);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+#scene-tooltip.visible {
+  opacity: 1;
+}
+
+/* Small Hover Tooltip for Clickable Objects */
+#hover-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 29;
+  pointer-events: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(8, 18, 38, 0.86);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 204, 51, 0.55);
+  color: #fff6d6;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45), 0 0 10px rgba(255, 204, 51, 0.2);
+  opacity: 0;
+  transition: opacity 0.14s ease;
+}
+
+#hover-tooltip.visible {
+  opacity: 1;
+}

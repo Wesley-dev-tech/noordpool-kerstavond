@@ -42,14 +42,19 @@ export function createInteractionManager(camera, domElement, cameraSys = null) {
       savedEmissive: []
     };
 
+    const seenMaterials = new Set();
     entry.glowMeshes.forEach((m) => {
-      if (m.material && 'emissive' in m.material) {
-        entry.savedEmissive.push({
-          mesh: m,
-          colorHex: m.material.emissive.getHex(),
-          intensity: m.material.emissiveIntensity ?? 1.0
-        });
-      }
+      const mats = Array.isArray(m.material) ? m.material : [m.material];
+      mats.forEach((mat) => {
+        if (mat && 'emissive' in mat && !seenMaterials.has(mat)) {
+          seenMaterials.add(mat);
+          entry.savedEmissive.push({
+            mat,
+            colorHex: mat.emissive.getHex(),
+            intensity: mat.emissiveIntensity ?? 1.0
+          });
+        }
+      });
     });
 
     object3D.traverse((child) => {
@@ -133,8 +138,8 @@ export function createInteractionManager(camera, domElement, cameraSys = null) {
 
     if (hoveredEntry) {
       hoveredEntry.savedEmissive.forEach((item) => {
-        item.mesh.material.emissive.setHex(item.colorHex);
-        item.mesh.material.emissiveIntensity = item.intensity;
+        item.mat.emissive.setHex(item.colorHex);
+        item.mat.emissiveIntensity = item.intensity;
       });
     }
 
@@ -144,10 +149,10 @@ export function createInteractionManager(camera, domElement, cameraSys = null) {
       document.body.style.cursor = 'pointer';
       hoveredEntry.savedEmissive.forEach((item) => {
         if (item.colorHex === 0x000000) {
-          item.mesh.material.emissive.setHex(0x4466aa);
-          item.mesh.material.emissiveIntensity = 0.55;
+          item.mat.emissive.setHex(0x4466aa);
+          item.mat.emissiveIntensity = 0.55;
         } else {
-          item.mesh.material.emissiveIntensity = item.intensity + 0.65;
+          item.mat.emissiveIntensity = item.intensity + 0.65;
         }
       });
     } else {

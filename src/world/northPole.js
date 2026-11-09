@@ -61,41 +61,84 @@ export function createNorthPole(scene, interaction, audio) {
   orbMesh.castShadow = true;
   group.add(orbMesh);
 
+  // Shared dark wood edge material so box edges don't show squished sign text
+  const signEdgeMat = new THREE.MeshStandardMaterial({
+    color: 0x3b2110,
+    roughness: 0.7,
+    metalness: 0.08
+  });
+
   // 3. Main Sign: "NOORDPOOL · 90° N"
   const mainSignTex = createSignTexture('NOORDPOOL', '90° 00\' 00" N');
-  const mainSignMat = new THREE.MeshStandardMaterial({
+  const mainSignFaceMat = new THREE.MeshStandardMaterial({
     map: mainSignTex,
-    roughness: 0.55,
+    roughness: 0.5,
     metalness: 0.1,
-    emissive: 0x221100,
-    emissiveIntensity: 0.25
+    emissive: 0x261304,
+    emissiveIntensity: 0.28
   });
-  const mainSignGeo = new THREE.BoxGeometry(1.35, 0.42, 0.07);
-  const mainSignMesh = new THREE.Mesh(mainSignGeo, mainSignMat);
-  mainSignMesh.position.set(0, 2.95, 0.18);
+  const mainSignMaterials = [
+    signEdgeMat,
+    signEdgeMat,
+    signEdgeMat,
+    signEdgeMat,
+    mainSignFaceMat,
+    mainSignFaceMat
+  ];
+  const mainSignGeo = new THREE.BoxGeometry(1.42, 0.44, 0.07);
+  const mainSignMesh = new THREE.Mesh(mainSignGeo, mainSignMaterials);
+  mainSignMesh.position.set(0, 3.06, 0.18);
   mainSignMesh.castShadow = true;
   group.add(mainSignMesh);
 
-  // 4. Directional Arrow Signs
+  // 4. Directional Arrow Signs (mounted outside the pole radius so text is never occluded)
   const dirConfigs = [
-    { text: 'WERKPLAATS', sub: '← 12 m', y: 2.42, rotY: 0.55 },
-    { text: 'LAPLAND', sub: '2650 km →', y: 2.12, rotY: -0.75 },
-    { text: 'STERRENWACHT', sub: '40 m ↗', y: 1.82, rotY: 1.85 }
+    { text: 'WERKPLAATS', sub: '← 12 m', y: 2.48, rotY: 0.45 },
+    { text: 'LAPLAND', sub: '2650 km →', y: 2.02, rotY: -0.55 },
+    { text: 'STERRENWACHT', sub: '40 m ↗', y: 1.56, rotY: 0.15 }
   ];
+
+  const signWidth = 1.18;
+  const signHeight = 0.36;
+  const signDepth = 0.055;
+  const poleClearanceX = 0.16; // Outside pole radius (0.14) so 100% of the board is visible
+  const dirCollarGeo = new THREE.TorusGeometry(0.145, 0.018, 10, 24);
+  dirCollarGeo.rotateX(Math.PI / 2);
+  const dirSignMeshes = [];
 
   dirConfigs.forEach((cfg) => {
     const tex = createSignTexture(cfg.text, cfg.sub, '#5c341b', '#fff5dc');
-    const mat = new THREE.MeshStandardMaterial({
+    const faceMat = new THREE.MeshStandardMaterial({
       map: tex,
-      roughness: 0.6,
-      metalness: 0.08
+      roughness: 0.52,
+      metalness: 0.08,
+      emissive: 0x241205,
+      emissiveIntensity: 0.28
     });
-    const signBoard = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.26, 0.05), mat);
-    signBoard.position.set(0.36, cfg.y, 0);
+    const boardMaterials = [
+      signEdgeMat,
+      signEdgeMat,
+      signEdgeMat,
+      signEdgeMat,
+      faceMat,
+      faceMat
+    ];
+
+    const signBoard = new THREE.Mesh(
+      new THREE.BoxGeometry(signWidth, signHeight, signDepth),
+      boardMaterials
+    );
+    signBoard.position.set(poleClearanceX + signWidth * 0.5, cfg.y, 0);
     signBoard.castShadow = true;
+    signBoard.receiveShadow = true;
+    dirSignMeshes.push(signBoard);
+
+    const collar = new THREE.Mesh(dirCollarGeo, goldMat);
+    collar.position.y = cfg.y;
 
     const pivot = new THREE.Group();
     pivot.rotation.y = cfg.rotY;
+    pivot.add(collar);
     pivot.add(signBoard);
     group.add(pivot);
   });
@@ -108,7 +151,7 @@ export function createNorthPole(scene, interaction, audio) {
     interaction.registerClickable(group, {
       id: 'northPole',
       label: 'Noordpoolpaal (90° N)',
-      glowMeshes: [orbMesh, mainSignMesh, poleMesh],
+      glowMeshes: [orbMesh, mainSignMesh, ...dirSignMeshes, poleMesh],
       focusTarget: new THREE.Vector3(0, 2.15, 0),
       focusDistance: 4.2,
       focusHeightOffset: 0.4,

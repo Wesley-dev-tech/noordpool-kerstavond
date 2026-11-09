@@ -103,43 +103,67 @@ export function createStripedPoleTexture() {
 }
 
 export function createSignTexture(text, subtext = '', bgColor = '#4a2c18', textColor = '#fff6e0') {
+  const width = 1024;
+  const height = 320;
   const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 160;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext('2d');
 
   ctx.fillStyle = bgColor;
-  ctx.fillRect(0, 0, 512, 160);
+  ctx.fillRect(0, 0, width, height);
 
   // Subtle wood grain
   ctx.strokeStyle = 'rgba(0,0,0,0.22)';
-  ctx.lineWidth = 2;
-  for (let y = 6; y < 160; y += 10) {
+  ctx.lineWidth = 3;
+  for (let y = 12; y < height; y += 18) {
     ctx.beginPath();
     ctx.moveTo(0, y);
-    ctx.bezierCurveTo(170, y + 4, 340, y - 4, 512, y + 2);
+    ctx.bezierCurveTo(width * 0.33, y + 7, width * 0.66, y - 7, width, y + 4);
     ctx.stroke();
   }
 
-  // Gold border
+  // Gold border with outer wood margin
+  const borderInset = 20;
   ctx.strokeStyle = '#ffcc33';
-  ctx.lineWidth = 6;
-  ctx.strokeRect(8, 8, 496, 144);
+  ctx.lineWidth = 8;
+  ctx.strokeRect(borderInset, borderInset, width - borderInset * 2, height - borderInset * 2);
 
-  ctx.fillStyle = textColor;
+  // Generous inner margin inside the gold border so text never feels cramped or clipped
+  const horizontalMargin = 96;
+  const maxTextWidth = width - horizontalMargin * 2;
+
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = subtext ? 'bold 38px Georgia, serif' : 'bold 42px Georgia, serif';
-  ctx.fillText(text, 256, subtext ? 62 : 80);
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.65)';
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 3;
+
+  let mainFontSize = subtext ? 54 : 62;
+  ctx.font = `bold ${mainFontSize}px Georgia, serif`;
+  while (ctx.measureText(text).width > maxTextWidth && mainFontSize > 26) {
+    mainFontSize -= 2;
+    ctx.font = `bold ${mainFontSize}px Georgia, serif`;
+  }
+
+  ctx.fillStyle = textColor;
+  ctx.fillText(text, width * 0.5, subtext ? 116 : height * 0.5, maxTextWidth);
 
   if (subtext) {
+    let subFontSize = 40;
+    ctx.font = `bold ${subFontSize}px sans-serif`;
+    while (ctx.measureText(subtext).width > maxTextWidth && subFontSize > 20) {
+      subFontSize -= 2;
+      ctx.font = `bold ${subFontSize}px sans-serif`;
+    }
     ctx.fillStyle = '#ffd966';
-    ctx.font = 'bold 26px sans-serif';
-    ctx.fillText(subtext, 256, 114);
+    ctx.fillText(subtext, width * 0.5, 210, maxTextWidth);
   }
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
   return tex;
 }
 

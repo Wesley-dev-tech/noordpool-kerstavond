@@ -7,6 +7,7 @@ export function createHUD(callbacks) {
   const audioToggleBtn = document.getElementById('btn-audio');
   const tooltipEl = document.getElementById('scene-tooltip');
   const hoverTooltipEl = document.getElementById('hover-tooltip');
+  const mailboxPopoverEl = document.getElementById('mailbox-wish-popover');
   const qualityBtns = document.querySelectorAll('[data-quality]');
 
   const projVec = new THREE.Vector3();
@@ -54,7 +55,7 @@ export function createHUD(callbacks) {
     }, 850);
   }
 
-  function update(delta, camera, qualityManager, interactionManager) {
+  function update(delta, camera, qualityManager, interactionManager, mailboxManager = null) {
     // 1. Update FPS counter (throttled to 4x per second)
     if (qualityManager) {
       const visible = qualityManager.isFpsVisible();
@@ -104,6 +105,22 @@ export function createHUD(callbacks) {
         hoverTooltipEl.classList.add('visible');
       } else {
         hoverTooltipEl.classList.remove('visible');
+      }
+    }
+
+    // 4. Project Mailbox Wish Input Popover above the Mailbox in 2D Screen coordinates
+    const popoverEl = mailboxPopoverEl || document.getElementById('mailbox-wish-popover');
+    if (popoverEl && mailboxManager && mailboxManager.getPopoverAnchor && camera) {
+      const anchor = mailboxManager.getPopoverAnchor();
+      if (anchor) {
+        projVec.copy(anchor).project(camera);
+        if (projVec.z < 1.0) {
+          const rawX = (projVec.x * 0.5 + 0.5) * window.innerWidth;
+          const rawY = (-projVec.y * 0.5 + 0.5) * window.innerHeight;
+          const clampedX = Math.min(window.innerWidth - 150, Math.max(150, Math.round(rawX)));
+          const clampedY = Math.min(window.innerHeight - 24, Math.max(110, Math.round(rawY)));
+          popoverEl.style.transform = `translate3d(${clampedX}px, ${clampedY}px, 0) translate(-50%, -100%)`;
+        }
       }
     }
   }

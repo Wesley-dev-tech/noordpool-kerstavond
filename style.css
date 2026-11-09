@@ -244,3 +244,121 @@ body {
 #hover-tooltip.visible {
   opacity: 1;
 }
+
+/* Mailbox Wish Popover */
+#mailbox-wish-popover {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 35;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+#mailbox-wish-popover.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mailbox-wish-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 260px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(10, 20, 42, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid #ffcc33;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65), 0 0 16px rgba(255, 204, 51, 0.3);
+  color: #fff6d6;
+}
+
+.mailbox-wish-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mailbox-wish-label {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #ffcc33;
+  letter-spacing: 0.02em;
+}
+
+.mailbox-wish-close {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: #dceaff;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 0.78rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.mailbox-wish-close:hover {
+  background: rgba(217, 32, 39, 0.75);
+  color: #ffffff;
+}
+
+.mailbox-wish-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mailbox-wish-input {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(184, 212, 255, 0.32);
+  background: rgba(4, 10, 24, 0.78);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-family: inherit;
+  outline: none;
+  user-select: text;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.mailbox-wish-input::placeholder {
+  color: rgba(184, 212, 255, 0.52);
+}
+
+.mailbox-wish-input:focus {
+  border-color: #ffcc33;
+  box-shadow: 0 0 8px rgba(255, 204, 51, 0.35);
+}
+
+.mailbox-wish-submit {
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #ffcc33 0%, #e69900 100%);
+  color: #141a29;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(255, 204, 51, 0.35);
+  transition: transform 0.14s ease, filter 0.14s ease, box-shadow 0.14s ease;
+}
+
+.mailbox-wish-submit:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 0 12px rgba(255, 204, 51, 0.6);
+}
+
+.mailbox-wish-submit:active {
+  transform: scale(0.97);
+}

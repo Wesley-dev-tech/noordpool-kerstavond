@@ -40,6 +40,7 @@ export const COORDS = Object.freeze({
   workshop: { x: -10, y: 0, z: -7, rotY: 0.42 },
   woodpile: { x: -6.2, y: 0, z: -5.8 },
   snowman: { x: -5.0, y: 0, z: -3.2, rotY: 0.55 },
+  santaCouple: { x: -10.51, y: 0, z: -0.74, rotY: 0.58 },
   iceLake: { x: 8.5, y: 0.02, z: 4.5 },
   mainChristmasTree: { x: 4.5, y: 0, z: -3.5, height: 5.2 },
   secondChristmasTree: { x: -4.8, y: 0, z: -9.2, height: 4.4 },

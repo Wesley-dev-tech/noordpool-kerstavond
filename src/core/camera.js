@@ -188,6 +188,10 @@ export function createCamera(rendererDomElement) {
   rendererDomElement.addEventListener('pointerdown', onUserInterrupt, { passive: true });
   rendererDomElement.addEventListener('wheel', onUserInterrupt, { passive: true });
   window.addEventListener('keydown', (e) => {
+    const tag = e.target && e.target.tagName ? e.target.tagName.toUpperCase() : '';
+    const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable);
+    if (isInput) return;
+
     if (e.code === 'Space') {
       skipIntroFlight();
     } else if (e.code === 'Escape') {

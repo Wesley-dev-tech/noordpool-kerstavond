@@ -30,6 +30,9 @@ export function createQualityManager(initialLevel = 'high', onQualityChange = ()
   }
 
   window.addEventListener('keydown', (e) => {
+    const tag = e.target && e.target.tagName ? e.target.tagName.toUpperCase() : '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+
     if (e.code === 'KeyF' && !e.ctrlKey && !e.metaKey && !e.altKey) {
       toggleFpsVisible();
     }

@@ -10,12 +10,14 @@ import { createSky } from './world/sky.js';
 import { createAurora } from './world/aurora.js';
 import { createNorthPole } from './world/northPole.js';
 import { createWorkshop } from './world/workshop.js';
+import { createMailbox } from './world/mailbox.js';
 import { createTrees } from './world/trees.js';
 import { createSnow } from './world/snow.js';
 import { createSleigh } from './world/sleigh.js';
 import { createGifts } from './world/gifts.js';
-import { createHUD } from './ui/hud.js';
-import { createAudioManager } from './ui/audio.js';
+import { createSantaCouple } from './actors/santa-couple.js';
+import { createHUD } from './ui/hud.js?v=3';
+import { createAudioManager } from './ui/audio.js?v=3';
 
 const container = document.getElementById('app');
 const initialPreset = QUALITY_PRESETS.high;
@@ -39,10 +41,12 @@ const skySys = createSky(rendererSys.scene, initialPreset);
 const auroraSys = createAurora(rendererSys.scene);
 const northPoleSys = createNorthPole(rendererSys.scene, interactionSys, audioSys);
 const workshopSys = createWorkshop(rendererSys.scene, lightsSys, interactionSys, audioSys, initialPreset);
+const mailboxSys = createMailbox(rendererSys.scene, interactionSys, audioSys);
 const treesSys = createTrees(rendererSys.scene, interactionSys, audioSys);
 const snowSys = createSnow(rendererSys.scene, initialPreset);
 const sleighSys = createSleigh(rendererSys.scene, initialPreset, interactionSys, audioSys);
 const giftsSys = createGifts(rendererSys.scene, interactionSys, audioSys);
+const santaCoupleSys = createSantaCouple(rendererSys.scene, interactionSys, audioSys);
 
 // 3. Quality & HUD
 const qualitySys = createQualityManager('high', (preset) => {
@@ -103,10 +107,12 @@ function animate() {
   auroraSys.update(delta, totalElapsed);
   northPoleSys.update(delta, totalElapsed);
   workshopSys.update(delta, totalElapsed);
+  mailboxSys.update(delta, totalElapsed);
   treesSys.update(delta, totalElapsed);
   snowSys.update(delta, totalElapsed);
   sleighSys.update(delta, totalElapsed);
   giftsSys.update(delta, totalElapsed);
+  santaCoupleSys.update(delta, totalElapsed);
 
   interactionSys.update(delta, totalElapsed);
   audioSys.update(
@@ -116,7 +122,7 @@ function animate() {
     sleighSys.getPosition(),
     snowSys.getGustStrength()
   );
-  hudSys.update(delta, cameraSys.camera, qualitySys, interactionSys);
+  hudSys.update(delta, cameraSys.camera, qualitySys, interactionSys, mailboxSys);
 
   rendererSys.render(cameraSys.camera);
 }

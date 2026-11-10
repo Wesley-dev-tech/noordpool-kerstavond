@@ -20,7 +20,6 @@ import { createSantaCouple } from './actors/santa-couple.js';
 import { createElfVillage } from './world/elf-village.js';
 import { createPath } from './world/path-v2.js';
 import { createElves } from './actors/elves.js';
-import { createRailway } from './world/railway.js';
 import { createObstacleDebugger } from './world/obstacles.js';
 import { createHUD } from './ui/hud.js';
 import { createAudioManager } from './ui/audio.js';
@@ -32,13 +31,7 @@ if (new URLSearchParams(window.location.search).has('view')) {
   const el = document.getElementById('loading-screen');
   if (el) el.remove();
 }
-// Mobiele toestellen (touchscreen / telefoon-UA) starten op 'Midden' om GPU-geheugen
-// en shadercompilatie te sparen; desktop blijft op 'Hoog'.
-const isMobileDevice =
-  (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ||
-  /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-const initialLevel = isMobileDevice ? 'medium' : 'high';
-const initialPreset = QUALITY_PRESETS[initialLevel];
+const initialPreset = QUALITY_PRESETS.high;
 
 // 1. Core Systems
 const rendererSys = createRenderer(container, initialPreset);
@@ -69,7 +62,6 @@ const santaCoupleSys = createSantaCouple(rendererSys.scene, interactionSys, audi
 const elfVillageSys = createElfVillage(rendererSys.scene, interactionSys, audioSys);
 const pathSys = createPath(rendererSys.scene);
 const elvesSys = createElves(rendererSys.scene, interactionSys, audioSys);
-const railwaySys = createRailway(rendererSys.scene, interactionSys, audioSys);
 const obstacleDebugSys = createObstacleDebugger(rendererSys.scene, () => [elvesSys.elves[0], elvesSys.elves[1]]);
 
 // Expose systems for diagnostics / interactive testing
@@ -85,7 +77,6 @@ window.__WORLD__ = {
   elfVillageSys,
   pathSys,
   elvesSys,
-  railwaySys,
   obstacleDebugSys
 };
 
@@ -321,24 +312,6 @@ if (viewParam === 'snowman') {
     new THREE.Vector3(-16.8, gy + 1.2, 4.8),
     new THREE.Vector3(-14.50, gy + 1.1, 2.50)
   );
-} else if (viewParam === 'station' || viewParam === 'kersthalte' || viewParam === 'perron') {
-  const gy = getTerrainHeight(-14.6, 2.2);
-  cameraSys.teleport(
-    new THREE.Vector3(-8.6, gy + 2.0, 1.0),
-    new THREE.Vector3(-14.6, gy + 1.2, 2.2)
-  );
-} else if (viewParam === 'overweg' || viewParam === 'crossing') {
-  const gy = getTerrainHeight(-10.8, 4.2);
-  cameraSys.teleport(
-    new THREE.Vector3(-7.8, gy + 2.0, 6.8),
-    new THREE.Vector3(-10.8, gy + 0.6, 4.2)
-  );
-} else if (viewParam === 'railway' || viewParam === 'spoor') {
-  const gy = getTerrainHeight(0, 0);
-  cameraSys.teleport(
-    new THREE.Vector3(4.0, gy + 38.0, 42.0),
-    new THREE.Vector3(-2.0, gy + 1.0, 0.0)
-  );
 } else if (viewParam === 'overview' || viewParam === 'default') {
   cameraSys.teleport(
     new THREE.Vector3(COORDS.cameraDefaultPos.x, COORDS.cameraDefaultPos.y, COORDS.cameraDefaultPos.z),
@@ -396,7 +369,7 @@ if (urlParams.get('debug') === '1' || urlParams.get('debug') === 'true') {
 }
 
 // 3. Quality & HUD
-const qualitySys = createQualityManager(initialLevel, (preset, levelName) => {
+const qualitySys = createQualityManager('high', (preset, levelName) => {
   rendererSys.setQuality(preset);
   lightsSys.setQuality(preset, levelName);
   skySys.setQuality(preset);
@@ -407,10 +380,10 @@ const qualitySys = createQualityManager(initialLevel, (preset, levelName) => {
   elfVillageSys.setQuality(preset, levelName);
 });
 
-// Apply initial preset configuration to all lights and modules
-lightsSys.setQuality(initialPreset, initialLevel);
-workshopSys.setQuality(initialPreset, initialLevel);
-elfVillageSys.setQuality(initialPreset, initialLevel);
+// Apply initial high-preset configuration to all lights and modules
+lightsSys.setQuality(initialPreset, 'high');
+workshopSys.setQuality(initialPreset, 'high');
+elfVillageSys.setQuality(initialPreset, 'high');
 
 const qualityParam = urlParams.get('quality');
 if (qualityParam && ['low', 'medium', 'high'].includes(qualityParam)) {
@@ -441,8 +414,6 @@ const hudSys = createHUD({
     );
   }
 });
-
-hudSys.setActiveQualityButton(qualitySys.getLevel());
 
 // Hide loading screen once scene is compiled
 if (viewParam) {
@@ -500,7 +471,6 @@ function animate() {
   elfVillageSys.update(delta, totalElapsed);
   pathSys.update(delta, totalElapsed);
   elvesSys.update(delta, totalElapsed);
-  railwaySys.update(delta, totalElapsed);
   obstacleDebugSys.update(delta, totalElapsed);
 
   interactionSys.update(delta, totalElapsed);

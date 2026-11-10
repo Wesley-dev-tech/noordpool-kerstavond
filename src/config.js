@@ -53,7 +53,7 @@ export const PATH_WAYPOINTS = Object.freeze([
 ]);
 
 export const RAILWAY_WAYPOINTS = Object.freeze([
-  { x: -50.36, y: 0, z: 15.19 }  // 0: Station Kersthalte stop (Elf Village side),
+  { x: -50.36, y: 0, z: 15.19 }, // 0: Station Kersthalte stop (Elf Village side)
   { x: -52.79, y: 0, z: 7.52 },
   { x: -53.13, y: 0, z: -0.50 },
   { x: -51.25, y: 0, z: -8.46 },

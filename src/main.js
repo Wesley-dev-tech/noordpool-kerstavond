@@ -32,7 +32,13 @@ if (new URLSearchParams(window.location.search).has('view')) {
   const el = document.getElementById('loading-screen');
   if (el) el.remove();
 }
-const initialPreset = QUALITY_PRESETS.high;
+// Mobiele toestellen (touchscreen / telefoon-UA) starten op 'Midden' om GPU-geheugen
+// en shadercompilatie te sparen; desktop blijft op 'Hoog'.
+const isMobileDevice =
+  (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) ||
+  /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+const initialLevel = isMobileDevice ? 'medium' : 'high';
+const initialPreset = QUALITY_PRESETS[initialLevel];
 
 // 1. Core Systems
 const rendererSys = createRenderer(container, initialPreset);
@@ -390,7 +396,7 @@ if (urlParams.get('debug') === '1' || urlParams.get('debug') === 'true') {
 }
 
 // 3. Quality & HUD
-const qualitySys = createQualityManager('high', (preset, levelName) => {
+const qualitySys = createQualityManager(initialLevel, (preset, levelName) => {
   rendererSys.setQuality(preset);
   lightsSys.setQuality(preset, levelName);
   skySys.setQuality(preset);
@@ -399,14 +405,12 @@ const qualitySys = createQualityManager('high', (preset, levelName) => {
   sleighSys.setQuality(preset);
   workshopSys.setQuality(preset, levelName);
   elfVillageSys.setQuality(preset, levelName);
-  trainSys.setQuality(preset);
 });
 
-// Apply initial high-preset configuration to all lights and modules
-lightsSys.setQuality(initialPreset, 'high');
-workshopSys.setQuality(initialPreset, 'high');
-elfVillageSys.setQuality(initialPreset, 'high');
-trainSys.setQuality(initialPreset);
+// Apply initial preset configuration to all lights and modules
+lightsSys.setQuality(initialPreset, initialLevel);
+workshopSys.setQuality(initialPreset, initialLevel);
+elfVillageSys.setQuality(initialPreset, initialLevel);
 
 const qualityParam = urlParams.get('quality');
 if (qualityParam && ['low', 'medium', 'high'].includes(qualityParam)) {
@@ -418,7 +422,6 @@ if (urlParams.get('fps') === '1' || urlParams.get('fps') === 'true') {
 
 const hudSys = createHUD({
   onQualitySelect: (level) => qualitySys.setLevel(level, true),
-  onToggleTrain: () => trainSys.togglePause(),
   onToggleAudio: () => audioSys.toggle(),
   onToggleFps: () => qualitySys.toggleFpsVisible(),
   onToggleDebug: () => obstacleDebugSys.toggle(),
@@ -439,10 +442,7 @@ const hudSys = createHUD({
   }
 });
 
-trainSys.onHudStateChange((isPaused) => {
-  hudSys.setTrainButtonState(isPaused);
-});
-hudSys.setTrainButtonState(trainSys.isPaused());
+hudSys.setActiveQualityButton(qualitySys.getLevel());
 
 // Hide loading screen once scene is compiled
 if (viewParam) {

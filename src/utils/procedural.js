@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PATH_WAYPOINTS, RAILWAY_WAYPOINTS } from '../config.js';
+import { PATH_WAYPOINTS } from '../config.js';
 
 function hash2D(ix, iz) {
   let n = ix * 374761393 + iz * 668265263;
@@ -54,29 +54,12 @@ for (let i = 0; i < PATH_WAYPOINTS.length - 1; i++) {
   ]);
 }
 
-// Precomputed 2D segments along the closed railway curve for microsecond distance lookups
-const RAILWAY_2D_SEGMENTS = [];
-if (typeof RAILWAY_WAYPOINTS !== 'undefined' && RAILWAY_WAYPOINTS.length > 0) {
-  const pts = RAILWAY_WAYPOINTS.map((w) => new THREE.Vector3(w.x, 0, w.z));
-  const curve = new THREE.CatmullRomCurve3(pts, true, 'centripetal', 0.5);
-  const sampled = curve.getSpacedPoints(140);
-  for (let i = 0; i < sampled.length; i++) {
-    const next = sampled[(i + 1) % sampled.length];
-    RAILWAY_2D_SEGMENTS.push([
-      sampled[i].x,
-      sampled[i].z,
-      next.x,
-      next.z
-    ]);
-  }
-}
-
 /**
  * Returns the Euclidean horizontal distance from any (x, z) to the shared path centerline.
  */
 export function getDistanceToPath(x, z) {
   // Fast AABB check for early-out (> 90% of terrain vertices skip loop)
-  if (x < -60.0 || x > 40.0 || z < -38.0 || z > 46.0) {
+  if (x < -18.5 || x > 4.5 || z < -4.8 || z > 10.2) {
     return 99.0;
   }
   let minDistSq = 9999.0;
@@ -102,39 +85,9 @@ export function getDistanceToPath(x, z) {
 }
 
 /**
- * Returns the Euclidean horizontal distance from any (x, z) to the railway track centerline.
- */
-export function getDistanceToRailway(x, z) {
-  // Fast AABB check for early-out (> 80% of terrain vertices skip loop)
-  if (x < -60.0 || x > 40.0 || z < -38.0 || z > 46.0) {
-    return 99.0;
-  }
-  let minDistSq = 9999.0;
-  for (let i = 0; i < RAILWAY_2D_SEGMENTS.length; i++) {
-    const seg = RAILWAY_2D_SEGMENTS[i];
-    const ax = seg[0];
-    const az = seg[1];
-    const bx = seg[2];
-    const bz = seg[3];
-    const dx = bx - ax;
-    const dz = bz - az;
-    const l2 = dx * dx + dz * dz;
-    let t = l2 > 0 ? ((x - ax) * dx + (z - az) * dz) / l2 : 0;
-    t = Math.max(0, Math.min(1, t));
-    const cx = ax + t * dx;
-    const cz = az + t * dz;
-    const qx = x - cx;
-    const qz = z - cz;
-    const distSq = qx * qx + qz * qz;
-    if (distSq < minDistSq) minDistSq = distSq;
-  }
-  return Math.sqrt(minDistSq);
-}
-
-/**
  * Single source of truth for the North Pole terrain ground height.
- * The snow ground displacement flows out within ±1 m of the 1.5 m path curve
- * and under the railway track bed, providing a smooth, level foundation.
+ * The snow ground displacement flows out within ±1 m of the 1.5 m path curve,
+ * providing a smooth, level foundation for the paved stone road.
  */
 export function getGroundHeight(x, z) {
   const distOrigin = Math.hypot(x, z);
@@ -151,13 +104,8 @@ export function getGroundHeight(x, z) {
   const distPath = getDistanceToPath(x, z);
   const flattenPath = smoothstep(0.90, 2.10, distPath);
 
-  // Flatten terrain displacement within ±1.20 m of the railway curve & ballast
-  const distRailway = getDistanceToRailway(x, z);
-  const flattenRailway = smoothstep(1.20, 2.80, distRailway);
-
   const baseNoise =
-    (fbm2D(x * 0.045, z * 0.045, 4) * 1.45 + fbm2D(x * 0.14, z * 0.14, 2) * 0.25) *
-    flattenPath;
+    (fbm2D(x * 0.045, z * 0.045, 4) * 1.45 + fbm2D(x * 0.14, z * 0.14, 2) * 0.25) * flattenPath;
   const edgeBoost = smoothstep(14, 46, distOrigin) * 1.65;
   const outerHorizonFade = 1.0 - smoothstep(54, 92, distOrigin);
   let h =
@@ -167,12 +115,6 @@ export function getGroundHeight(x, z) {
     flattenLake *
     flattenVillage *
     outerHorizonFade;
-
-  // Flatten terrain smoothly under railway track to level ground
-  if (flattenRailway < 1.0) {
-    const flatTrackY = 0.08;
-    h = THREE.MathUtils.lerp(flatTrackY, h, flattenRailway);
-  }
 
   // Sleigh tracks from (-12, 8) via (0, 3.2) to (14, -4) - gracefully fade away across path
   if (x >= -15 && x <= 16) {

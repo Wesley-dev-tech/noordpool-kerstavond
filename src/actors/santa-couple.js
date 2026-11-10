@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { COLORS, COORDS } from '../config.js';
 import { getTerrainHeight } from '../utils/procedural.js';
+import { createContactShadow } from './contact-shadow.js';
 
 /**
  * Helper to enable shadow casting and receiving on all meshes within a group.
@@ -917,10 +918,27 @@ export function createSantaCouple(scene, interaction = null, audio = null) {
   rootGroup.add(santa.group, mrsClaus.group);
   scene.add(rootGroup);
 
+  // Ensure every mesh within Santa and Mrs. Claus casts and receives shadows
+  rootGroup.traverse((child) => {
+    if (child.isMesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
+  });
+
   // World-space positions for raycast focus & floating 3D speech bubbles
   const santaWorldY = coupleGroundY + santaLocalY;
   const mrsWorldY = coupleGroundY + mrsLocalY;
   const coupleFrontDir = new THREE.Vector3(Math.sin(coupleRotY), 0, Math.cos(coupleRotY));
+
+  // Realistic contact shadow ellipses under Santa and Mrs. Claus's boots and dress
+  const santaShadow = createContactShadow({ radiusX: 0.44, radiusZ: 0.38, opacity: 0.68 });
+  santaShadow.update(santaWorldX, santaWorldZ, santaWorldY, 0, coupleRotY + 0.08);
+  scene.add(santaShadow.mesh);
+
+  const mrsShadow = createContactShadow({ radiusX: 0.40, radiusZ: 0.36, opacity: 0.65 });
+  mrsShadow.update(mrsWorldX, mrsWorldZ, mrsWorldY, 0, coupleRotY - 0.08);
+  scene.add(mrsShadow.mesh);
 
   const santaTooltipPos = new THREE.Vector3(santaWorldX, santaWorldY + 1.88, santaWorldZ);
   const mrsTooltipPos = new THREE.Vector3(mrsWorldX, mrsWorldY + 1.78, mrsWorldZ);
@@ -1057,6 +1075,8 @@ export function createSantaCouple(scene, interaction = null, audio = null) {
     group: rootGroup,
     santa,
     mrsClaus,
+    santaShadow,
+    mrsShadow,
     update
   };
 }

@@ -2,17 +2,35 @@ import * as THREE from 'three';
 import { COLORS, COORDS } from '../config.js';
 
 export function createLights(scene, initialPreset) {
+  // Center of the main play zone (between Santa/Workshop and Elf Village)
+  const defaultPlayCenter = new THREE.Vector3(-7.5, 0, 3.5);
+  const moonTarget = new THREE.Object3D();
+  moonTarget.position.copy(defaultPlayCenter);
+  scene.add(moonTarget);
+
+  const initialMoonPos = new THREE.Vector3(COORDS.moon.x, COORDS.moon.y, COORDS.moon.z);
+  const moonOffset = new THREE.Vector3().subVectors(initialMoonPos, defaultPlayCenter);
+
   const moonLight = new THREE.DirectionalLight(COLORS.MOONLIGHT, 1.15);
-  moonLight.position.set(COORDS.moon.x, COORDS.moon.y, COORDS.moon.z);
+  moonLight.position.copy(initialMoonPos);
+  moonLight.target = moonTarget;
+
   moonLight.castShadow = initialPreset.shadowsEnabled;
   moonLight.shadow.mapSize.set(initialPreset.shadowMapSize, initialPreset.shadowMapSize);
-  moonLight.shadow.camera.left = -26;
-  moonLight.shadow.camera.right = 26;
-  moonLight.shadow.camera.top = 26;
-  moonLight.shadow.camera.bottom = -26;
-  moonLight.shadow.camera.near = 1;
-  moonLight.shadow.camera.far = 110;
-  moonLight.shadow.bias = -0.0005;
+  
+  // Shadow camera frustum strak afgestemd op de actieve speelzone en het elfendorp
+  // zodat de schaduwresolutie geconcentreerd is en de huisjesschaduwen haarscherp vallen
+  moonLight.shadow.camera.left = -17;
+  moonLight.shadow.camera.right = 17;
+  moonLight.shadow.camera.top = 17;
+  moonLight.shadow.camera.bottom = -17;
+  moonLight.shadow.camera.near = 12;
+  moonLight.shadow.camera.far = 120;
+
+  // Haarfijn gekalibreerde bias en normalBias: voorkomt blokkerige vlekken en acne op daken
+  moonLight.shadow.bias = -0.00020;
+  moonLight.shadow.normalBias = 0.022;
+  moonLight.shadow.radius = 1.35; // Strakke, scherpe PCF schaduwranden zonder grove pixels
   scene.add(moonLight);
 
   const hemiLight = new THREE.HemisphereLight(COLORS.HEMI_SKY, COLORS.HEMI_GROUND, 0.25);
@@ -29,7 +47,7 @@ export function createLights(scene, initialPreset) {
   scene.add(doorSpotLight);
   scene.add(doorSpotLight.target);
 
-  function update(delta, elapsed) {
+  function update(delta, elapsed, cameraTarget) {
     // Cozy fireplace flicker inside the workshop (synchronized with workshop window glow)
     const hearthWave =
       Math.sin(elapsed * 4.2) * 0.42 +
@@ -42,6 +60,15 @@ export function createLights(scene, initialPreset) {
       Math.min(1.0, Math.max(0.52, 0.655 + hearthWave * 0.065)),
       Math.min(1.0, Math.max(0.12, 0.2 + hearthWave * 0.055))
     );
+
+    // Gently follow camera target within play zone bounds to concentrate shadow resolution
+    if (cameraTarget && moonLight.castShadow) {
+      const clampedX = Math.max(-22.0, Math.min(8.0, cameraTarget.x));
+      const clampedZ = Math.max(-12.0, Math.min(18.0, cameraTarget.z));
+      moonTarget.position.x += (clampedX - moonTarget.position.x) * Math.min(1.0, delta * 3.5);
+      moonTarget.position.z += (clampedZ - moonTarget.position.z) * Math.min(1.0, delta * 3.5);
+      moonLight.position.copy(moonTarget.position).add(moonOffset);
+    }
   }
 
   function setQuality(preset) {

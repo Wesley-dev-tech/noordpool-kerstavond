@@ -46,6 +46,7 @@ export function createSky(scene, initialPreset = QUALITY_PRESETS.high) {
     `
   });
   const skyDome = new THREE.Mesh(skyGeo, skyMat);
+  skyDome.renderOrder = -10;
   group.add(skyDome);
 
   // 2. Twinkling Stars (Points with ShaderMaterial)
@@ -128,6 +129,7 @@ export function createSky(scene, initialPreset = QUALITY_PRESETS.high) {
   });
 
   const starsPoints = new THREE.Points(starGeo, starMat);
+  starsPoints.renderOrder = -5;
   group.add(starsPoints);
 
   // 3. Moon with Halo
@@ -137,6 +139,7 @@ export function createSky(scene, initialPreset = QUALITY_PRESETS.high) {
     fog: false
   });
   const moonMesh = new THREE.Mesh(moonGeo, moonMat);
+  moonMesh.renderOrder = 0;
   moonMesh.position.set(COORDS.moon.x, COORDS.moon.y, COORDS.moon.z);
   group.add(moonMesh);
 
@@ -151,6 +154,7 @@ export function createSky(scene, initialPreset = QUALITY_PRESETS.high) {
   });
   const haloSprite = new THREE.Sprite(haloMat);
   haloSprite.scale.set(22, 22, 1);
+  haloSprite.renderOrder = 3;
   moonMesh.add(haloSprite);
 
   // 4. Periodic Shooting Star (average interval: 15 seconds)
@@ -227,6 +231,7 @@ export function createSky(scene, initialPreset = QUALITY_PRESETS.high) {
   const shootingStar = new THREE.Mesh(shootGeo, shootMat);
   shootingStar.frustumCulled = false;
   shootingStar.visible = false;
+  shootingStar.renderOrder = 4;
   group.add(shootingStar);
 
   // First meteor appears shortly after the 5s intro flight; subsequent ones average every 15s

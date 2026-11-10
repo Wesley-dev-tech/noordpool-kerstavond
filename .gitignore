@@ -1,0 +1,14 @@
+# Dependencies & environment
+node_modules/
+.env
+.env.local
+
+# Build artifacts & local servers
+server.mjs
+capture.mjs
+capture-cdp.mjs
+
+# Test / debug screenshots & renders
+*.png
+test_*.png
+screenshot_*.png

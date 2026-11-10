@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PATH_WAYPOINTS } from '../config.js';
 
 function hash2D(ix, iz) {
   let n = ix * 374761393 + iz * 668265263;
@@ -42,35 +43,101 @@ function smoothstep(edge0, edge1, x) {
   return t * t * (3 - 2 * t);
 }
 
-export function getTerrainHeight(x, z) {
+// Precomputed 2D segments along the path curve for microsecond distance lookups
+const PATH_2D_SEGMENTS = [];
+for (let i = 0; i < PATH_WAYPOINTS.length - 1; i++) {
+  PATH_2D_SEGMENTS.push([
+    PATH_WAYPOINTS[i].x,
+    PATH_WAYPOINTS[i].z,
+    PATH_WAYPOINTS[i + 1].x,
+    PATH_WAYPOINTS[i + 1].z
+  ]);
+}
+
+/**
+ * Returns the Euclidean horizontal distance from any (x, z) to the shared path centerline.
+ */
+export function getDistanceToPath(x, z) {
+  // Fast AABB check for early-out (> 90% of terrain vertices skip loop)
+  if (x < -18.5 || x > 4.5 || z < -4.8 || z > 10.2) {
+    return 99.0;
+  }
+  let minDistSq = 9999.0;
+  for (let i = 0; i < PATH_2D_SEGMENTS.length; i++) {
+    const seg = PATH_2D_SEGMENTS[i];
+    const ax = seg[0];
+    const az = seg[1];
+    const bx = seg[2];
+    const bz = seg[3];
+    const dx = bx - ax;
+    const dz = bz - az;
+    const l2 = dx * dx + dz * dz;
+    let t = l2 > 0 ? ((x - ax) * dx + (z - az) * dz) / l2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    const cx = ax + t * dx;
+    const cz = az + t * dz;
+    const qx = x - cx;
+    const qz = z - cz;
+    const distSq = qx * qx + qz * qz;
+    if (distSq < minDistSq) minDistSq = distSq;
+  }
+  return Math.sqrt(minDistSq);
+}
+
+/**
+ * Single source of truth for the North Pole terrain ground height.
+ * The snow ground displacement flows out within ±1 m of the 1.5 m path curve,
+ * providing a smooth, level foundation for the paved stone road.
+ */
+export function getGroundHeight(x, z) {
   const distOrigin = Math.hypot(x, z);
   const distWorkshop = Math.hypot(x - -10, z - -7);
   const distLake = Math.hypot((x - 8.5) / 1.3, (z - 4.5) / 0.85);
+  const distVillage = Math.hypot(x - -18.0, z - 8.5);
 
   const flattenOrigin = smoothstep(2.5, 6.5, distOrigin);
   const flattenWorkshop = smoothstep(4.2, 8.5, distWorkshop);
   const flattenLake = smoothstep(4.8, 7.5, distLake);
+  const flattenVillage = smoothstep(12.0, 23.0, distVillage);
 
-  const baseNoise = fbm2D(x * 0.045, z * 0.045, 4) * 1.45 + fbm2D(x * 0.14, z * 0.14, 2) * 0.25;
+  // Flatten terrain displacement within ±0.90 m of the 1.6 m path curve
+  const distPath = getDistanceToPath(x, z);
+  const flattenPath = smoothstep(0.90, 2.10, distPath);
+
+  const baseNoise =
+    (fbm2D(x * 0.045, z * 0.045, 4) * 1.45 + fbm2D(x * 0.14, z * 0.14, 2) * 0.25) * flattenPath;
   const edgeBoost = smoothstep(14, 46, distOrigin) * 1.65;
   const outerHorizonFade = 1.0 - smoothstep(54, 92, distOrigin);
-  let h = (baseNoise + edgeBoost) * flattenOrigin * flattenWorkshop * flattenLake * outerHorizonFade;
+  let h =
+    (baseNoise + edgeBoost) *
+    flattenOrigin *
+    flattenWorkshop *
+    flattenLake *
+    flattenVillage *
+    outerHorizonFade;
 
-  // Sleigh tracks from (-12, 8) via (0, 3.2) to (14, -4)
+  // Sleigh tracks from (-12, 8) via (0, 3.2) to (14, -4) - gracefully fade away across path
   if (x >= -15 && x <= 16) {
     const trackCenterZ = 3.2 - x * 0.52 + Math.sin(x * 0.18) * 0.6;
     const d1 = Math.abs(z - (trackCenterZ - 0.55));
     const d2 = Math.abs(z - (trackCenterZ + 0.55));
     const groove1 = Math.max(0, 1 - d1 / 0.22);
     const groove2 = Math.max(0, 1 - d2 / 0.22);
-    h -= (groove1 * groove1 + groove2 * groove2) * 0.065 * flattenLake;
+    h -= (groove1 * groove1 + groove2 * groove2) * 0.065 * flattenLake * flattenPath;
   }
 
   // Slight basin depression under the ice lake so terrain never pokes through the ice
   const lakeBasin = 1.0 - smoothstep(4.2, 5.6, distLake);
   h -= lakeBasin * 0.05;
 
-  return Math.max(-0.08, h);
+  return Math.max(-0.04, h);
+}
+
+/**
+ * Backward compatibility alias for getGroundHeight.
+ */
+export function getTerrainHeight(x, z) {
+  return getGroundHeight(x, z);
 }
 
 export function createStripedPoleTexture() {
@@ -547,5 +614,38 @@ export function createWoodTexture() {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+export function createSnowBumpTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  const imgData = ctx.createImageData(256, 256);
+  const data = imgData.data;
+
+  for (let y = 0; y < 256; y++) {
+    for (let x = 0; x < 256; x++) {
+      const idx = (y * 256 + x) * 4;
+      const nx = x / 256;
+      const ny = y / 256;
+      const grain = (Math.random() - 0.5) * 36;
+      const wave1 = Math.sin(nx * 14.0) * Math.cos(ny * 14.0) * 22;
+      const wave2 = Math.sin(nx * 32.0 + 1.2) * Math.sin(ny * 28.0) * 14;
+      const val = Math.min(255, Math.max(0, Math.round(135 + grain + wave1 + wave2)));
+
+      data[idx] = val;
+      data[idx + 1] = val;
+      data[idx + 2] = val;
+      data[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 2);
   return tex;
 }

@@ -275,11 +275,16 @@ export function createAudioManager() {
   function onFirstUserGesture(e) {
     // If the user clicked the audio button itself, let toggle() handle it cleanly
     const audioBtn = document.getElementById('btn-audio');
-    if (audioBtn && e && e.target && audioBtn.contains(e.target)) {
+    if (audioBtn && e && e.target && (e.target instanceof Node) && audioBtn.contains(e.target)) {
       return;
     }
     if (enabled && (!ctx || ctx.state !== 'running' || !unlocked)) {
       unlockAndStartIfEnabled();
+    }
+    if (unlocked) {
+      unlockEvents.forEach((evt) => {
+        window.removeEventListener(evt, onFirstUserGesture, { capture: true });
+      });
     }
   }
   unlockEvents.forEach((evt) => {
@@ -496,6 +501,63 @@ export function createAudioManager() {
     playChime(0.95);
   }
 
+  function playElfBell() {
+    if (!enabled) return;
+    ensureContext();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume();
+    const now = ctx.currentTime;
+    // High crystalline elf bell notes: E6, G#6, B6, E7
+    const freqs = [1318.51, 1661.22, 1975.53, 2637.02];
+    freqs.forEach((f, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f, now + idx * 0.038);
+
+      gain.gain.setValueAtTime(0.0001, now + idx * 0.038);
+      gain.gain.linearRampToValueAtTime(0.08, now + idx * 0.038 + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.038 + 0.55);
+
+      osc.connect(gain);
+      gain.connect(masterGain || ctx.destination);
+      osc.start(now + idx * 0.038);
+      osc.stop(now + idx * 0.038 + 0.6);
+    });
+  }
+
+  function playWoodChopTok() {
+    if (!enabled) return;
+    ensureContext();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume();
+    const now = ctx.currentTime;
+
+    // Crisp hollow wood impact 'tok'
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(240, now);
+    osc.frequency.exponentialRampToValueAtTime(75, now + 0.055);
+
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(420, now);
+    filter.Q.value = 3.5;
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(0.18, now + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.065);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain || ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.07);
+  }
+
   function triggerSleighBell(volume) {
     if (!enabled || !ctx || ctx.state !== 'running' || volume < 0.003) return;
     const now = ctx.currentTime;
@@ -584,6 +646,8 @@ export function createAudioManager() {
     isEnabled: () => enabled,
     playChime,
     playDoorCreak,
+    playElfBell,
+    playWoodChopTok,
     update
   };
 }

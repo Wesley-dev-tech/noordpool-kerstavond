@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { COLORS, COORDS, GROUPS, QUALITY_PRESETS } from '../config.js';
-import { createWoodTexture, createWindowGlowTexture, createSmokeSprite } from '../utils/procedural.js';
+import { createWoodTexture, createWindowGlowTexture, createSmokeSprite, getTerrainHeight } from '../utils/procedural.js';
+import { createElf } from '../actors/elf-model.js';
+import { getObstacles, ELF_RADIUS } from './obstacles.js';
 
 function createWorkshopSignTexture(text, subtext = '', bgColor = '#4a2c18', textColor = '#fff6e0') {
   const canvas = document.createElement('canvas');
@@ -56,7 +58,7 @@ function createWorkshopSignTexture(text, subtext = '', bgColor = '#4a2c18', text
   return tex;
 }
 
-export function createWorkshop(scene, lights, interaction, audio, initialPreset = QUALITY_PRESETS.high) {
+export function createWorkshop(scene, lights, interaction, audio, initialPreset = QUALITY_PRESETS.high, camera = null) {
   const rootGroup = new THREE.Group();
   rootGroup.name = GROUPS.GROUP_WORKSHOP;
 
@@ -274,6 +276,23 @@ export function createWorkshop(scene, lights, interaction, audio, initialPreset 
     cabinGroup.add(lantern);
   });
 
+  // Warm PointLight under the workshop porch/veranda overhang
+  const porchPointLight = new THREE.PointLight(0xffa834, 2.8, 14.0, 1.35);
+  porchPointLight.position.set(0, 2.35, D / 2 + 0.95);
+  porchPointLight.shadow.mapSize.set(512, 512);
+  porchPointLight.shadow.camera.near = 0.25;
+  porchPointLight.shadow.camera.far = 14.0;
+  porchPointLight.shadow.bias = -0.0015;
+  porchPointLight.shadow.normalBias = 0.04;
+  porchPointLight.shadow.radius = 2.0;
+  porchPointLight.shadow.autoUpdate = false;
+  porchPointLight.castShadow = Boolean(initialPreset && initialPreset.pointShadowsEnabled);
+  if (porchPointLight.castShadow) {
+    porchPointLight.shadow.needsUpdate = true;
+  }
+  cabinGroup.add(porchPointLight);
+  let porchShadowTimer = 0;
+
   // 6. Clickable Workshop Door with Wreath & Warm Light Spill
   // Dark warm interior recess behind the door so opening looks realistic
   const interiorBackdrop = new THREE.Mesh(
@@ -326,27 +345,482 @@ export function createWorkshop(scene, lights, interaction, audio, initialPreset 
   bowMesh.position.set(0.62, 1.78, 0.11);
   doorPivot.add(bowMesh);
 
-  // Volumetric warm light spill cone on porch floor when door opens
-  const lightBeamGeo = new THREE.ConeGeometry(1.85, 3.8, 24, 1, true);
-  lightBeamGeo.translate(0, -1.9, 0);
-  lightBeamGeo.rotateX(-Math.PI / 2.2);
-  const lightBeamMat = new THREE.MeshBasicMaterial({
-    color: 0xffbb55,
-    transparent: true,
-    opacity: 0.0,
-    blending: THREE.AdditiveBlending,
-    side: THREE.DoubleSide,
-    depthWrite: false
-  });
-  const lightBeamMesh = new THREE.Mesh(lightBeamGeo, lightBeamMat);
-  lightBeamMesh.position.set(0, 1.85, D / 2 + 0.15);
-  lightBeamMesh.visible = false;
-  lightBeamMesh.raycast = () => {};
-  cabinGroup.add(lightBeamMesh);
+  // 6. Clickable Workshop Door with Wreath (Spring Physics & Elf Present Delivery)
+  // Door spring damped oscillator: swings open and shut with a lively spring bounce ("veereffect, slingert even na")
+  let doorAngle = 0.0;
+  let doorTargetAngle = 0.0;
+  let doorVelocity = 0.0;
+  const SPRING_STIFFNESS = 36.0;
+  const SPRING_DAMPING = 6.8;
 
-  let doorOpen = false;
-  let doorAngle = 0;
+  function updateDoorSpring(dt) {
+    const diff = doorTargetAngle - doorAngle;
+    doorVelocity += diff * SPRING_STIFFNESS * dt;
+    doorVelocity -= doorVelocity * SPRING_DAMPING * dt;
+    doorAngle += doorVelocity * Math.min(dt, 0.05);
+    doorPivot.rotation.y = doorAngle;
+  }
+
+  // Wrapped gifts palette & slot coordinates under the main tree
+  const GIFT_BOX_COLORS = [
+    '#d92027', // crimson red
+    '#1976d2', // royal blue
+    '#2e7d32', // forest emerald
+    '#7b1fa2', // royal purple
+    '#f57c00', // warm orange
+    '#c2185b', // ruby magenta
+    '#0097a7', // ice cyan
+    '#fbc02d', // golden amber
+    '#303f9f', // deep sapphire
+    '#e64a19'  // burnt terracotta
+  ];
+
+  const GIFT_RIBBON_COLORS = [
+    '#ffcc33', // shiny gold
+    '#ffffff', // snow white
+    '#d92027', // bright red
+    '#00e676', // mint green
+    '#ff4081', // bright pink
+    '#e0e0e0', // silver satin
+    '#ffd700'  // imperial gold
+  ];
+
+  // 10 distinct festive slots under the big Christmas tree
+  const TREE_GIFT_SLOTS = [
+    { x: 3.85, z: -2.05, rotY: 0.35 },
+    { x: 4.85, z: -2.05, rotY: -0.35 },
+    { x: 3.25, z: -2.35, rotY: 0.75 },
+    { x: 5.45, z: -2.35, rotY: -0.75 },
+    { x: 2.95, z: -2.95, rotY: 1.15 },
+    { x: 5.75, z: -2.95, rotY: -1.15 },
+    { x: 3.55, z: -1.65, rotY: 0.15 },
+    { x: 4.35, z: -1.55, rotY: -0.05 },
+    { x: 5.15, z: -1.65, rotY: 0.25 },
+    { x: 4.15, z: -2.55, rotY: -0.65 }
+  ];
+
+  function createWrappedGiftMesh(boxColor, ribbonColor, size = 0.35) {
+    const giftRoot = new THREE.Group();
+
+    const boxMat = new THREE.MeshStandardMaterial({
+      color: boxColor,
+      roughness: 0.38,
+      metalness: 0.12
+    });
+
+    const ribbonMat = new THREE.MeshStandardMaterial({
+      color: ribbonColor,
+      roughness: 0.25,
+      metalness: 0.72,
+      emissive: ribbonColor,
+      emissiveIntensity: 0.08
+    });
+
+    // Base gift box
+    const box = new THREE.Mesh(new THREE.BoxGeometry(size, size * 0.85, size), boxMat);
+    box.position.y = size * 0.425;
+    box.castShadow = true;
+    box.receiveShadow = true;
+    giftRoot.add(box);
+
+    // Cross ribbons wrapping the box
+    const band1 = new THREE.Mesh(new THREE.BoxGeometry(size * 1.02, size * 0.86, size * 0.18), ribbonMat);
+    band1.position.y = size * 0.425;
+    giftRoot.add(band1);
+
+    const band2 = new THREE.Mesh(new THREE.BoxGeometry(size * 0.18, size * 0.86, size * 1.02), ribbonMat);
+    band2.position.y = size * 0.425;
+    giftRoot.add(band2);
+
+    // Decorative bow on top with center knot, 2 loops, and dangling ribbon tails
+    const bowGroup = new THREE.Group();
+    bowGroup.position.set(0, size * 0.85, 0);
+
+    const knot = new THREE.Mesh(new THREE.SphereGeometry(size * 0.075, 10, 10), ribbonMat);
+    knot.castShadow = true;
+    bowGroup.add(knot);
+
+    const loopGeo = new THREE.TorusGeometry(size * 0.13, size * 0.038, 8, 16);
+    const leftLoop = new THREE.Mesh(loopGeo, ribbonMat);
+    leftLoop.position.set(-size * 0.09, size * 0.08, 0);
+    leftLoop.rotation.set(0, Math.PI / 4, Math.PI / 6);
+    leftLoop.castShadow = true;
+    bowGroup.add(leftLoop);
+
+    const rightLoop = new THREE.Mesh(loopGeo, ribbonMat);
+    rightLoop.position.set(size * 0.09, size * 0.08, 0);
+    rightLoop.rotation.set(0, -Math.PI / 4, -Math.PI / 6);
+    rightLoop.castShadow = true;
+    bowGroup.add(rightLoop);
+
+    [-1, 1].forEach((dir) => {
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(size * 0.065, size * 0.20, 0.015), ribbonMat);
+      tail.position.set(dir * size * 0.07, -size * 0.06, size * 0.10);
+      tail.rotation.set(-0.25, 0, dir * 0.35);
+      tail.castShadow = true;
+      bowGroup.add(tail);
+    });
+
+    giftRoot.add(bowGroup);
+
+    return {
+      group: giftRoot,
+      materials: [boxMat, ribbonMat]
+    };
+  }
+
+  // Glitter particle system for sparkling cloud when gift is placed under the tree
+  function createGlitterParticleSystem(targetScene) {
+    const COUNT = 65;
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(COUNT * 3);
+    const colors = new Float32Array(COUNT * 3);
+    const sizes = new Float32Array(COUNT);
+    const opacities = new Float32Array(COUNT);
+
+    for (let i = 0; i < COUNT; i++) {
+      positions[i * 3 + 1] = -100;
+      sizes[i] = 0;
+      opacities[i] = 0;
+    }
+
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geo.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+    geo.setAttribute('aOpacity', new THREE.BufferAttribute(opacities, 1));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(255,255,255,1.0)');
+    grad.addColorStop(0.25, 'rgba(255,240,180,0.85)');
+    grad.addColorStop(0.6, 'rgba(255,210,100,0.3)');
+    grad.addColorStop(1, 'rgba(255,200,80,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 64, 64);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.beginPath();
+    ctx.moveTo(32, 4);
+    ctx.quadraticCurveTo(32, 32, 60, 32);
+    ctx.quadraticCurveTo(32, 32, 32, 60);
+    ctx.quadraticCurveTo(32, 32, 4, 32);
+    ctx.quadraticCurveTo(32, 32, 32, 4);
+    ctx.fill();
+
+    const tex = new THREE.CanvasTexture(canvas);
+
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uMap: { value: tex },
+        uScale: { value: 260.0 }
+      },
+      vertexShader: /* glsl */ `
+        attribute float aSize;
+        attribute float aOpacity;
+        attribute vec3 color;
+        varying float vOpacity;
+        varying vec3 vColor;
+        uniform float uScale;
+
+        void main() {
+          vOpacity = aOpacity;
+          vColor = color;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+          gl_PointSize = clamp(aSize * (uScale / max(-mvPosition.z, 0.5)), 1.0, 150.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform sampler2D uMap;
+        varying float vOpacity;
+        varying vec3 vColor;
+
+        void main() {
+          if (vOpacity <= 0.005) discard;
+          vec4 texColor = texture2D(uMap, gl_PointCoord);
+          if (texColor.a < 0.01) discard;
+          gl_FragColor = vec4(vColor * texColor.rgb, texColor.a * vOpacity);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    const pointsMesh = new THREE.Points(geo, mat);
+    pointsMesh.frustumCulled = false;
+    targetScene.add(pointsMesh);
+
+    const particles = [];
+    const palette = [
+      new THREE.Color(0xffd700), // gold
+      new THREE.Color(0xffffff), // diamond white
+      new THREE.Color(0xff99bb), // pink sparkle
+      new THREE.Color(0x7fe5d9), // crystalline cyan
+      new THREE.Color(0x99ff99)  // magical green
+    ];
+
+    for (let i = 0; i < COUNT; i++) {
+      particles.push({
+        active: false,
+        x: 0,
+        y: -100,
+        z: 0,
+        vx: 0,
+        vy: 0,
+        vz: 0,
+        color: palette[i % palette.length],
+        life: 0,
+        maxLife: 1.5,
+        baseSize: 0.22
+      });
+    }
+
+    function burst(x, y, z) {
+      for (let i = 0; i < COUNT; i++) {
+        const p = particles[i];
+        p.active = true;
+        p.x = x + (Math.random() - 0.5) * 0.25;
+        p.y = y + 0.12 + Math.random() * 0.15;
+        p.z = z + (Math.random() - 0.5) * 0.25;
+
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.4 + Math.random() * 1.3;
+        p.vx = Math.cos(angle) * speed;
+        p.vy = 0.9 + Math.random() * 1.6;
+        p.vz = Math.sin(angle) * speed;
+
+        p.maxLife = 1.1 + Math.random() * 0.7;
+        p.life = p.maxLife;
+        p.baseSize = 0.20 + Math.random() * 0.22;
+
+        const col = p.color;
+        colors[i * 3] = col.r;
+        colors[i * 3 + 1] = col.g;
+        colors[i * 3 + 2] = col.b;
+      }
+      geo.attributes.color.needsUpdate = true;
+    }
+
+    function update(dt, elapsed) {
+      let anyActive = false;
+      for (let i = 0; i < COUNT; i++) {
+        const p = particles[i];
+        if (!p.active) continue;
+        anyActive = true;
+        p.life -= dt;
+        if (p.life <= 0) {
+          p.active = false;
+          positions[i * 3 + 1] = -100;
+          sizes[i] = 0;
+          opacities[i] = 0;
+          continue;
+        }
+
+        p.vy -= 1.6 * dt; // gentle gravity
+        p.vx *= (1.0 - dt * 0.75); // air drag
+        p.vz *= (1.0 - dt * 0.75);
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.z += p.vz * dt;
+
+        positions[i * 3] = p.x;
+        positions[i * 3 + 1] = p.y;
+        positions[i * 3 + 2] = p.z;
+
+        const t = p.life / p.maxLife;
+        const shimmer = 0.7 + Math.sin(elapsed * 25.0 + i * 3.7) * 0.3;
+        sizes[i] = p.baseSize * shimmer * (0.4 + t * 0.6);
+        opacities[i] = Math.sin(t * Math.PI) * 0.95;
+      }
+
+      if (anyActive) {
+        geo.attributes.position.needsUpdate = true;
+        geo.attributes.aSize.needsUpdate = true;
+        geo.attributes.aOpacity.needsUpdate = true;
+      }
+    }
+
+    return { burst, update };
+  }
+
+  const glitterSys = createGlitterParticleSystem(scene);
+
+  // Limb animation helpers for joyful hopping, bending, and waving
+  function updateElfWalk(elf, hop, isCarrying) {
+    const hopY = Math.abs(Math.sin(hop)) * 0.12;
+    const legSwing = Math.sin(hop) * 0.62;
+    const sway = Math.sin(hop * 0.5) * 0.08;
+
+    elf.charGroup.position.y = hopY;
+    elf.charGroup.rotation.z = sway;
+    elf.leftLeg.rotation.x = legSwing;
+    elf.rightLeg.rotation.x = -legSwing;
+
+    elf.hatTipGroup.rotation.z = 0.45 + Math.sin(hop) * 0.22;
+    elf.head.rotation.z = -sway * 0.7;
+
+    if (isCarrying) {
+      // Both arms holding the wrapped present
+      elf.leftArm.rotation.set(-0.85 + Math.sin(hop) * 0.05, 0.32, 0.28);
+      elf.rightArm.rotation.set(-0.85 + Math.sin(hop) * 0.05, -0.32, -0.28);
+    } else {
+      // Cheerful arm swing skipping back
+      elf.leftArm.rotation.set(-legSwing * 0.75, 0, 0.15);
+      elf.rightArm.rotation.set(legSwing * 0.75, 0, -0.15);
+    }
+  }
+
+  function updateElfBend(elf, bendFactor) {
+    elf.charGroup.position.y = -bendFactor * 0.16;
+    elf.charGroup.rotation.z = 0;
+    elf.torso.rotation.x = bendFactor * 0.62;
+    elf.head.rotation.x = -bendFactor * 0.30;
+    elf.leftLeg.rotation.x = -bendFactor * 0.22;
+    elf.rightLeg.rotation.x = -bendFactor * 0.22;
+    elf.leftArm.rotation.set(-0.85 - bendFactor * 0.25, 0.32, 0.28);
+    elf.rightArm.rotation.set(-0.85 - bendFactor * 0.25, -0.32, -0.28);
+  }
+
+  function updateElfWave(elf, waveTime) {
+    elf.charGroup.position.y = 0;
+    elf.charGroup.rotation.z = 0;
+    elf.torso.rotation.set(0, 0, 0);
+    elf.leftLeg.rotation.set(0, 0, 0);
+    elf.rightLeg.rotation.set(0, 0, 0);
+
+    elf.leftArm.rotation.set(0.1, 0, 0.12);
+    elf.rightArm.rotation.set(-1.85, 0, -0.35 + Math.sin(waveTime * 9.0) * 0.45);
+    elf.head.rotation.set(0, 0, Math.sin(waveTime * 4.5) * 0.14);
+    elf.hatTipGroup.rotation.z = 0.45 + Math.sin(waveTime * 9.0) * 0.18;
+  }
+
+  // Obstacle avoidance & collision helpers along the snowy path
+  function getElfObstacleAvoidance(x, z, moveDirX, moveDirZ) {
+    const distDoor = Math.hypot(x - (-8.8), z - (-4.4));
+    const distTree = Math.hypot(x - COORDS.mainChristmasTree.x, z - COORDS.mainChristmasTree.z);
+
+    let steerX = 0;
+    let steerZ = 0;
+    const obstacles = getObstacles();
+
+    for (let i = 0; i < obstacles.length; i++) {
+      const obs = obstacles[i];
+      if (distDoor < 2.5 && obs.id.startsWith('workshop')) continue;
+      if (distTree < 2.8 && obs.id === 'mainChristmasTree') continue;
+
+      const dx = x - obs.x;
+      const dz = z - obs.z;
+      const distSq = dx * dx + dz * dz;
+      const threshold = obs.radius + ELF_RADIUS + 0.42;
+
+      if (distSq < threshold * threshold && distSq > 0.00001) {
+        const dist = Math.sqrt(distSq);
+        const overlap = threshold - dist;
+        const factor = overlap / threshold;
+        const nx = dx / dist;
+        const nz = dz / dist;
+        const dot = nx * moveDirX + nz * moveDirZ;
+        const tanX = -nz * (dot < 0 ? 0.35 : 0);
+        const tanZ = nx * (dot < 0 ? 0.35 : 0);
+        steerX += (nx + tanX) * factor * 1.85;
+        steerZ += (nz + tanZ) * factor * 1.85;
+      }
+    }
+    return { x: steerX, z: steerZ };
+  }
+
+  function resolveElfCollision(x, z) {
+    const distDoor = Math.hypot(x - (-8.8), z - (-4.4));
+    const distTree = Math.hypot(x - COORDS.mainChristmasTree.x, z - COORDS.mainChristmasTree.z);
+    let resX = x;
+    let resZ = z;
+    const obstacles = getObstacles();
+
+    for (let i = 0; i < obstacles.length; i++) {
+      const obs = obstacles[i];
+      if (distDoor < 2.5 && obs.id.startsWith('workshop')) continue;
+      if (distTree < 2.8 && obs.id === 'mainChristmasTree') continue;
+
+      const dx = resX - obs.x;
+      const dz = resZ - obs.z;
+      const distSq = dx * dx + dz * dz;
+      const minDist = obs.radius + ELF_RADIUS + 0.05;
+
+      if (distSq < minDist * minDist) {
+        const dist = Math.sqrt(distSq);
+        if (dist > 0.0001) {
+          resX = obs.x + (dx / dist) * minDist;
+          resZ = obs.z + (dz / dist) * minDist;
+        } else {
+          resX = obs.x + minDist;
+        }
+      }
+    }
+    return { x: resX, z: resZ };
+  }
+
+  function createElfWalkCurve(targetSlot) {
+    const rotY = Math.atan2(COORDS.mainChristmasTree.x - targetSlot.x, COORDS.mainChristmasTree.z - targetSlot.z);
+    targetSlot.rotY = rotY;
+
+    // The elf stands 0.42m outside the slot, facing inward towards the tree
+    const elfStandX = targetSlot.x - Math.sin(rotY) * 0.42;
+    const elfStandZ = targetSlot.z - Math.cos(rotY) * 0.42;
+
+    const points = [
+      new THREE.Vector3(-9.1, 0.32, -4.9), // inside workshop doorway
+      new THREE.Vector3(-8.8, 0.28, -4.3), // doorway threshold
+      new THREE.Vector3(-8.1, 0.22, -2.8), // porch edge
+      new THREE.Vector3(-7.5, 0.0, -3.0),  // step down onto shared stone path
+      new THREE.Vector3(-5.8, 0.0, -2.0),  // stone path: between snowman & mailbox
+      new THREE.Vector3(-3.2, 0.0, -0.6),  // stone path: in front of mailbox
+      new THREE.Vector3(-0.8, 0.0, -1.7),  // stone path: in front of North Pole
+      new THREE.Vector3(1.2, 0.0, -1.8),   // stone path: approaching Great Christmas tree
+      new THREE.Vector3(2.6, 0.0, -2.3),   // stone path: arrival in front of tree
+      new THREE.Vector3(elfStandX, 0.0, elfStandZ) // arrival stand spot in front of slot
+    ];
+
+    return new THREE.CatmullRomCurve3(points, false, 'centripetal');
+  }
+
+  // Animation State Machine for Door & Delivery Elf
+  const ANIM_STATE = {
+    IDLE: 'IDLE',
+    DOOR_OPENING: 'DOOR_OPENING',
+    WALK_TO_TREE: 'WALK_TO_TREE',
+    PLACE_GIFT: 'PLACE_GIFT',
+    WAVE_CAMERA: 'WAVE_CAMERA',
+    WALK_BACK: 'WALK_BACK',
+    DOOR_CLOSING: 'DOOR_CLOSING'
+  };
+
+  let animState = ANIM_STATE.IDLE;
+  let isDoorBusy = false;
+  let deliveryElf = null;
+  let currentHeldGift = null;
+  let currentSlot = null;
+  let walkCurve = null;
+  let curveProgress = 0;
+  let hopPhase = 0;
+  let bendTimer = 0;
+  let waveTimer = 0;
+  let steerAvoidX = 0;
+  let steerAvoidZ = 0;
+
+  const tempCurvePos = new THREE.Vector3();
+  const tempCurveTangent = new THREE.Vector3();
+  const defaultCamPos = new THREE.Vector3(5.5, 4.6, 16.5);
+
+  const deliveredGifts = [];
+  let fadeExtraGiftsDelay = 0;
+  let isFadingExtraGifts = false;
+  let extraGiftFadeTimer = 0;
+
   const doorTooltipPos = new THREE.Vector3(COORDS.workshop.x + 1.5, 2.8, COORDS.workshop.z + 2.2);
+  const treeTooltipPos = new THREE.Vector3(COORDS.mainChristmasTree.x, 5.6, COORDS.mainChristmasTree.z);
   const doorWorldTarget = new THREE.Vector3(
     COORDS.workshop.x + Math.sin(COORDS.workshop.rotY) * (D / 2 + 0.1),
     1.35,
@@ -358,6 +832,75 @@ export function createWorkshop(scene, lights, interaction, audio, initialPreset 
     Math.cos(COORDS.workshop.rotY)
   );
 
+  function triggerDoorInteraction() {
+    if (isDoorBusy) return;
+
+    if (deliveredGifts.length >= 10 || isFadingExtraGifts) {
+      if (interaction) {
+        interaction.showTooltip('De boom zit vol! 🎁', treeTooltipPos, 3.5);
+      }
+      return;
+    }
+
+    isDoorBusy = true;
+    animState = ANIM_STATE.DOOR_OPENING;
+    doorTargetAngle = -1.25;
+
+    // Play crystalline elf bell chime upon door opening if sound is on
+    if (audio && audio.playElfBell) {
+      audio.playElfBell();
+    }
+
+    if (interaction) {
+      interaction.showTooltip('Elfje brengt een cadeau naar de boom! 🎁', doorTooltipPos, 3.0);
+    }
+
+    // Assign slot under the tree (0 to 9)
+    const slotIdx = deliveredGifts.length;
+    currentSlot = TREE_GIFT_SLOTS[slotIdx];
+    walkCurve = createElfWalkCurve(currentSlot);
+    curveProgress = 0;
+    hopPhase = 0;
+    bendTimer = 0;
+    waveTimer = 0;
+    steerAvoidX = 0;
+    steerAvoidZ = 0;
+
+    // Pick random box and ribbon/bow colors for this run
+    const boxColor = GIFT_BOX_COLORS[Math.floor(Math.random() * GIFT_BOX_COLORS.length)];
+    let ribbonColor = GIFT_RIBBON_COLORS[Math.floor(Math.random() * GIFT_RIBBON_COLORS.length)];
+    if (ribbonColor === boxColor) ribbonColor = '#ffd700';
+
+    currentHeldGift = createWrappedGiftMesh(boxColor, ribbonColor, 0.35);
+
+    if (!deliveryElf) {
+      deliveryElf = createElf({
+        id: 'workshopDeliveryElf',
+        scale: 1.25,
+        suitColor: 0x00c853,
+        hairColor: 0x7c3f1d
+      });
+      scene.add(deliveryElf.root);
+    }
+
+    deliveryElf.charGroup.position.set(0, 0, 0);
+    deliveryElf.charGroup.rotation.set(0, COORDS.workshop.rotY, 0);
+    deliveryElf.torso.rotation.set(0, 0, 0);
+    deliveryElf.head.rotation.set(0, 0, 0);
+    deliveryElf.leftLeg.rotation.set(0, 0, 0);
+    deliveryElf.rightLeg.rotation.set(0, 0, 0);
+
+    deliveryElf.charGroup.add(currentHeldGift.group);
+    currentHeldGift.group.position.set(0, 0.32, 0.22);
+    currentHeldGift.group.rotation.set(0, 0, 0);
+
+    deliveryElf.root.position.set(-9.1, 0.32, -4.9);
+    deliveryElf.root.visible = true;
+
+    deliveryElf.leftArm.rotation.set(-0.85, 0.32, 0.28);
+    deliveryElf.rightArm.rotation.set(-0.85, -0.32, -0.28);
+  }
+
   if (interaction) {
     interaction.registerClickable(doorPivot, {
       id: 'workshopDoor',
@@ -368,15 +911,7 @@ export function createWorkshop(scene, lights, interaction, audio, initialPreset 
       focusHeightOffset: 0.35,
       preferredDir: doorFrontDir,
       preferredWeight: 0.85,
-      onClick: () => {
-        doorOpen = !doorOpen;
-        interaction.showTooltip(
-          doorOpen ? 'Werkplaats geopend — Welkom bij de Kerstman!' : 'Werkplaatsdeur gesloten',
-          doorTooltipPos,
-          3.0
-        );
-        if (audio) audio.playDoorCreak();
-      }
+      onClick: triggerDoorInteraction
     });
 
     if (interaction.registerFocusable) {
@@ -714,25 +1249,201 @@ export function createWorkshop(scene, lights, interaction, audio, initialPreset 
     smokeGeo.attributes.aRotation.needsUpdate = true;
     smokeGeo.attributes.aWarmth.needsUpdate = true;
 
-    // 3. Door opening / closing animation + warm light beam
-    const targetAngle = doorOpen ? -1.15 : 0.0;
-    doorAngle += (targetAngle - doorAngle) * Math.min(1, delta * 6.5);
-    doorPivot.rotation.y = doorAngle;
+    // 3. Workshop Door Spring Animation & Elf Present Delivery
+    updateDoorSpring(delta);
+    glitterSys.update(delta, elapsed);
 
-    const openFactor = Math.abs(doorAngle) / 1.15;
-    if (openFactor > 0.02) {
-      const doorFlicker = 1.0 + baseHearthWave * 0.12;
-      lightBeamMesh.visible = true;
-      lightBeamMat.opacity = openFactor * 0.34 * doorFlicker;
-      if (lights && lights.doorSpotLight) {
-        lights.doorSpotLight.visible = true;
-        lights.doorSpotLight.intensity = openFactor * 6.5 * doorFlicker;
+    // Keep door spotlight off (light beam removed)
+    if (lights && lights.doorSpotLight) {
+      lights.doorSpotLight.visible = false;
+      lights.doorSpotLight.intensity = 0;
+    }
+
+    // Extra gifts slow fade-out when full
+    if (fadeExtraGiftsDelay > 0) {
+      fadeExtraGiftsDelay -= delta;
+      if (fadeExtraGiftsDelay <= 0) {
+        isFadingExtraGifts = true;
+        extraGiftFadeTimer = 0;
       }
-    } else {
-      lightBeamMesh.visible = false;
-      if (lights && lights.doorSpotLight) {
-        lights.doorSpotLight.visible = false;
-        lights.doorSpotLight.intensity = 0;
+    }
+
+    if (isFadingExtraGifts) {
+      extraGiftFadeTimer += delta;
+      const FADE_DURATION = 2.8;
+      const t = Math.min(1.0, extraGiftFadeTimer / FADE_DURATION);
+      const scale = 1.0 - t;
+
+      deliveredGifts.forEach((gift) => {
+        gift.group.scale.setScalar(Math.max(0.001, scale));
+        gift.materials.forEach((mat) => {
+          mat.transparent = true;
+          mat.opacity = 1.0 - t;
+        });
+      });
+
+      if (t >= 1.0) {
+        deliveredGifts.forEach((gift) => {
+          scene.remove(gift.group);
+          gift.group.traverse((c) => {
+            if (c.geometry) c.geometry.dispose();
+          });
+          gift.materials.forEach((m) => m.dispose());
+        });
+        deliveredGifts.length = 0;
+        isFadingExtraGifts = false;
+        extraGiftFadeTimer = 0;
+      }
+    }
+
+    // Elf Delivery State Machine
+    if (animState === ANIM_STATE.DOOR_OPENING) {
+      if (doorAngle <= -0.85) {
+        animState = ANIM_STATE.WALK_TO_TREE;
+      }
+    } else if (animState === ANIM_STATE.WALK_TO_TREE) {
+      const walkSpeed = 0.18; // ~5.5s to reach tree
+      curveProgress = Math.min(1.0, curveProgress + delta * walkSpeed);
+
+      walkCurve.getPointAt(curveProgress, tempCurvePos);
+      walkCurve.getTangentAt(curveProgress, tempCurveTangent);
+
+      // Obstacle avoidance steering
+      const steer = getElfObstacleAvoidance(tempCurvePos.x, tempCurvePos.z, tempCurveTangent.x, tempCurveTangent.z);
+      steerAvoidX += (steer.x - steerAvoidX) * Math.min(1.0, delta * 7.0);
+      steerAvoidZ += (steer.z - steerAvoidZ) * Math.min(1.0, delta * 7.0);
+
+      let fx = tempCurvePos.x + steerAvoidX;
+      let fz = tempCurvePos.z + steerAvoidZ;
+      const col = resolveElfCollision(fx, fz);
+      fx = col.x;
+      fz = col.z;
+
+      // Ground elevation with smooth transition from porch floor to snow
+      const onPorch = tempCurvePos.x < -7.6 && tempCurvePos.z < -2.4;
+      const porchBlend = onPorch ? Math.max(0, Math.min(1, (-tempCurvePos.z - 2.4) / 1.6)) : 0;
+      const terrainY = getTerrainHeight(fx, fz);
+      const groundY = porchBlend * 0.22 + (1 - porchBlend) * terrainY;
+
+      hopPhase += delta * 11.5;
+      updateElfWalk(deliveryElf, hopPhase, true);
+
+      const targetRot = Math.atan2(tempCurveTangent.x, tempCurveTangent.z);
+      deliveryElf.charGroup.rotation.y += (targetRot - deliveryElf.charGroup.rotation.y) * Math.min(1.0, delta * 9.0);
+      deliveryElf.root.position.set(fx, groundY, fz);
+
+      if (curveProgress >= 1.0) {
+        animState = ANIM_STATE.PLACE_GIFT;
+        bendTimer = 0;
+        deliveryElf.charGroup.rotation.y = currentSlot.rotY;
+      }
+    } else if (animState === ANIM_STATE.PLACE_GIFT) {
+      bendTimer += delta;
+
+      if (bendTimer < 0.7) {
+        const factor = bendTimer / 0.7;
+        updateElfBend(deliveryElf, factor);
+      } else {
+        if (currentHeldGift && currentHeldGift.group.parent === deliveryElf.charGroup) {
+          // Detach gift from elf and place under the tree
+          deliveryElf.charGroup.remove(currentHeldGift.group);
+          scene.add(currentHeldGift.group);
+
+          const slotGroundY = getTerrainHeight(currentSlot.x, currentSlot.z);
+          currentHeldGift.group.position.set(currentSlot.x, slotGroundY, currentSlot.z);
+          currentHeldGift.group.rotation.set(0, currentSlot.rotY, 0);
+
+          // Sparkling glitter particle cloud burst!
+          glitterSys.burst(currentSlot.x, slotGroundY + 0.16, currentSlot.z);
+
+          // Soft celesta chime sound
+          if (audio && audio.playChime) {
+            audio.playChime(1.75);
+          }
+
+          deliveredGifts.push(currentHeldGift);
+
+          // If maximum of 10 reached, show tooltip and schedule slow fade-out
+          if (deliveredGifts.length >= 10) {
+            if (interaction) {
+              interaction.showTooltip('De boom zit vol! 🎁', treeTooltipPos, 4.5);
+            }
+            fadeExtraGiftsDelay = 2.4;
+          }
+        }
+
+        if (bendTimer < 1.3) {
+          const factor = 1.0 - (bendTimer - 0.7) / 0.6;
+          updateElfBend(deliveryElf, factor);
+        } else {
+          animState = ANIM_STATE.WAVE_CAMERA;
+          waveTimer = 0;
+        }
+      }
+    } else if (animState === ANIM_STATE.WAVE_CAMERA) {
+      waveTimer += delta;
+
+      // Face toward camera
+      const camPos = camera ? camera.position : defaultCamPos;
+      const dx = camPos.x - deliveryElf.root.position.x;
+      const dz = camPos.z - deliveryElf.root.position.z;
+      const camAngle = Math.atan2(dx, dz);
+      deliveryElf.charGroup.rotation.y += (camAngle - deliveryElf.charGroup.rotation.y) * Math.min(1.0, delta * 8.0);
+
+      updateElfWave(deliveryElf, waveTimer);
+
+      if (waveTimer >= 1.8) {
+        animState = ANIM_STATE.WALK_BACK;
+        curveProgress = 1.0;
+        hopPhase = 0;
+      }
+    } else if (animState === ANIM_STATE.WALK_BACK) {
+      const returnSpeed = 0.18;
+      curveProgress = Math.max(0.0, curveProgress - delta * returnSpeed);
+
+      walkCurve.getPointAt(curveProgress, tempCurvePos);
+      walkCurve.getTangentAt(curveProgress, tempCurveTangent);
+
+      // Return trip direction is reversed
+      const moveDirX = -tempCurveTangent.x;
+      const moveDirZ = -tempCurveTangent.z;
+
+      const steer = getElfObstacleAvoidance(tempCurvePos.x, tempCurvePos.z, moveDirX, moveDirZ);
+      steerAvoidX += (steer.x - steerAvoidX) * Math.min(1.0, delta * 7.0);
+      steerAvoidZ += (steer.z - steerAvoidZ) * Math.min(1.0, delta * 7.0);
+
+      let fx = tempCurvePos.x + steerAvoidX;
+      let fz = tempCurvePos.z + steerAvoidZ;
+      const col = resolveElfCollision(fx, fz);
+      fx = col.x;
+      fz = col.z;
+
+      const onPorch = tempCurvePos.x < -7.6 && tempCurvePos.z < -2.4;
+      const porchBlend = onPorch ? Math.max(0, Math.min(1, (-tempCurvePos.z - 2.4) / 1.6)) : 0;
+      const terrainY = getTerrainHeight(fx, fz);
+      const groundY = porchBlend * 0.22 + (1 - porchBlend) * terrainY;
+
+      hopPhase += delta * 11.5;
+      updateElfWalk(deliveryElf, hopPhase, false);
+
+      const targetRot = Math.atan2(moveDirX, moveDirZ);
+      deliveryElf.charGroup.rotation.y += (targetRot - deliveryElf.charGroup.rotation.y) * Math.min(1.0, delta * 9.0);
+      deliveryElf.root.position.set(fx, groundY, fz);
+
+      if (curveProgress <= 0.0) {
+        // Elf entered inside the workshop
+        deliveryElf.root.visible = false;
+        animState = ANIM_STATE.DOOR_CLOSING;
+        doorTargetAngle = 0.0;
+      }
+    } else if (animState === ANIM_STATE.DOOR_CLOSING) {
+      // Once door has finished swinging shut and settled against the frame
+      if (Math.abs(doorAngle) < 0.025 && Math.abs(doorVelocity) < 0.06) {
+        doorAngle = 0.0;
+        doorVelocity = 0.0;
+        doorPivot.rotation.y = 0.0;
+        animState = ANIM_STATE.IDLE;
+        isDoorBusy = false; // Door interaction unlocked
       }
     }
 
@@ -750,13 +1461,46 @@ export function createWorkshop(scene, lights, interaction, audio, initialPreset 
       leftArm.rotation.z = 1.1;
       rightArm.rotation.z = -1.1;
     }
+    // 4. Throttled shadow update for workshop veranda light (~13 Hz) to preserve 60 FPS
+    if (porchPointLight.castShadow) {
+      porchShadowTimer += delta;
+      if (porchShadowTimer >= 0.075) {
+        porchShadowTimer = 0;
+        porchPointLight.shadow.needsUpdate = true;
+      }
+    }
   }
 
-  function setQuality(preset) {
+  function setQuality(preset, levelName) {
     activeSmokeCount = preset.smokeCount;
     smokeGeo.setDrawRange(0, activeSmokeCount);
+
+    const isHigh = levelName === 'high' || Boolean(preset && preset.pointShadowsEnabled);
+    porchPointLight.castShadow = isHigh;
+    if (isHigh) {
+      porchPointLight.shadow.needsUpdate = true;
+    } else if (porchPointLight.shadow.map) {
+      porchPointLight.shadow.map.dispose();
+      porchPointLight.shadow.map = null;
+    }
   }
 
+  // Ensure all veranda, porch floor, steps, pillars and cabin meshes receive shadows
+  cabinGroup.traverse((child) => {
+    if (child.isMesh) {
+      child.receiveShadow = true;
+    }
+  });
+
   scene.add(rootGroup);
-  return { group: rootGroup, update, setQuality };
+  return {
+    group: rootGroup,
+    porchPointLight,
+    update,
+    setQuality,
+    triggerDoorInteraction,
+    getDeliveredGiftsCount: () => deliveredGifts.length,
+    getAnimState: () => animState,
+    isDoorBusy: () => isDoorBusy
+  };
 }

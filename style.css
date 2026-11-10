@@ -188,6 +188,12 @@ body {
   box-shadow: 0 0 12px rgba(255, 204, 51, 0.5);
 }
 
+#btn-debug.active {
+  background: #ff1744;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(255, 23, 68, 0.7);
+}
+
 .fps-badge {
   font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
   font-weight: 700;
@@ -201,14 +207,17 @@ body {
   left: 0;
   z-index: 30;
   pointer-events: none;
-  padding: 7px 14px;
-  border-radius: 10px;
-  background: rgba(10, 20, 42, 0.88);
+  padding: 8px 16px;
+  border-radius: 12px;
+  background: rgba(10, 20, 42, 0.92);
   border: 1px solid #ffcc33;
   color: #fff6d6;
-  font-size: 0.86rem;
+  font-size: 0.88rem;
   font-weight: 600;
-  white-space: nowrap;
+  max-width: min(440px, calc(100vw - 32px));
+  box-sizing: border-box;
+  text-align: center;
+  line-height: 1.35;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55), 0 0 14px rgba(255, 204, 51, 0.35);
   opacity: 0;
   transition: opacity 0.2s ease;

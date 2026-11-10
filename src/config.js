@@ -35,6 +35,23 @@ export const GROUPS = Object.freeze({
   GROUP_GIFTS: 'giftsGroup'
 });
 
+export const PATH_WAYPOINTS = Object.freeze([
+  { x: -17.5, y: 0, z: 8.5 },  // Entrance to Elf Village central round plaza
+  { x: -16.0, y: 0, z: 8.4 },  // Elf Village square welcoming lane
+  { x: -14.2, y: 0, z: 8.0 },  // Flowing gently past the village edge
+  { x: -12.5, y: 0, z: 6.5 },  // Scenic curve past village clearing
+  { x: -11.0, y: 0, z: 4.0 },  // Transition to main lane
+  { x: -9.6, y: 0, z: 1.8 },   // Approaching workshop
+  { x: -8.4, y: 0, z: -0.2 },  // Wide front clearance past Santa & Mrs Claus (> 1.8m)
+  { x: -8.0, y: 0, z: -1.8 },  // Past workshop front
+  { x: -7.5, y: 0, z: -3.0 },  // Workshop porch area
+  { x: -5.8, y: 0, z: -2.0 },  // Lane between snowman and mailbox
+  { x: -3.2, y: 0, z: -0.6 },  // In front of mailbox
+  { x: -0.8, y: 0, z: -1.7 },  // In front of North Pole
+  { x: 1.2, y: 0, z: -1.8 },   // Approaching Great Christmas tree
+  { x: 2.6, y: 0, z: -2.3 }    // Festive arrival in front of Great Christmas tree
+]);
+
 export const COORDS = Object.freeze({
   northPole: { x: 0, y: 0, z: 0 },
   workshop: { x: -10, y: 0, z: -7, rotY: 0.42 },
@@ -44,10 +61,56 @@ export const COORDS = Object.freeze({
   iceLake: { x: 8.5, y: 0.02, z: 4.5 },
   mainChristmasTree: { x: 4.5, y: 0, z: -3.5, height: 5.2 },
   secondChristmasTree: { x: -4.8, y: 0, z: -9.2, height: 4.4 },
+  elfVillage: {
+    squareCenter: { x: -18.0, y: 0, z: 8.5 },
+    clearanceRadius: 18.0
+  },
+  elfVillageChristmasTrees: [
+    {
+      id: 'villageTree_1',
+      name: 'Goud & Warm Wit',
+      x: -14.60,
+      z: 11.80,
+      height: 2.55,
+      theme: 'gold_white'
+    },
+    {
+      id: 'villageTree_2',
+      name: 'Zuurstok & Rood',
+      x: -21.80,
+      z: 16.40,
+      height: 2.80,
+      theme: 'candycane_red'
+    },
+    {
+      id: 'villageTree_3',
+      name: 'Meerkleurig & Zilver',
+      x: -26.60,
+      z: 9.00,
+      height: 2.35,
+      theme: 'multicolor_silver'
+    },
+    {
+      id: 'villageTree_4',
+      name: 'Blauw, Zilver & IJspegels',
+      x: -22.80,
+      z: 1.60,
+      height: 2.65,
+      theme: 'blue_icicles'
+    },
+    {
+      id: 'villageTree_5',
+      name: 'Elfenboom: Cadeautjes & Snoep',
+      x: -14.50,
+      z: 2.50,
+      height: 2.45,
+      theme: 'elf_tree'
+    }
+  ],
   litPines: [
     { x: 7.5, y: 0, z: -8.5, scale: 1.05 },
-    { x: -15.5, y: 0, z: -2.5, scale: 1.15 },
-    { x: 11.0, y: 0, z: -2.0, scale: 0.95 },
+    { x: -17.0, y: 0, z: -3.5, scale: 1.15 },
+    { x: 11.5, y: 0, z: -3.8, scale: 0.95 },
     { x: -2.5, y: 0, z: -13.5, scale: 1.2 }
   ],
   forestPines: [
@@ -56,7 +119,7 @@ export const COORDS = Object.freeze({
     { x: 4.0, y: 0, z: -17.0, scale: 1.1 },
     { x: 14.0, y: 0, z: -12.0, scale: 1.3 },
     { x: 17.0, y: 0, z: 3.0, scale: 0.9 },
-    { x: -14.0, y: 0, z: 7.0, scale: 0.85 }
+    { x: -37.0, y: 0, z: 21.0, scale: 1.15 }
   ],
   gifts: [
     { x: 0.85, y: 0, z: 0.55, size: 0.52, rotY: 0.3, boxColor: '#d92027', ribbonColor: '#ffcc33' },
@@ -67,10 +130,10 @@ export const COORDS = Object.freeze({
   ],
   moon: { x: 28, y: 36, z: -42 },
   cameraIntroStart: { x: 0, y: 18, z: 34 },
-  cameraIntroMid: { x: -12, y: 9, z: 18 },
-  cameraDefaultPos: { x: 6.5, y: 4.2, z: 13.5 },
-  cameraTargetStart: { x: 0, y: 10, z: -18 },
-  cameraDefaultTarget: { x: -1.5, y: 1.8, z: -2.5 },
+  cameraIntroMid: { x: -6, y: 8, z: 22 },
+  cameraDefaultPos: { x: 5.5, y: 4.6, z: 16.5 },
+  cameraTargetStart: { x: -4, y: 8, z: -10 },
+  cameraDefaultTarget: { x: -3.8, y: 1.6, z: 0.5 },
   sleighCurvePoints: [
     [0, 14, -18],
     [22, 17, -10],
@@ -91,6 +154,9 @@ export const QUALITY_PRESETS = Object.freeze({
     starCount: 600,
     shadowsEnabled: false,
     shadowMapSize: 1024,
+    pointShadowsEnabled: false,
+    pointShadowMapSize: 512,
+    contactShadowsEnabled: true,
     bloomEnabled: false,
     bloomStrength: 0.0,
     bloomRadius: 0.3,
@@ -106,6 +172,9 @@ export const QUALITY_PRESETS = Object.freeze({
     starCount: 1200,
     shadowsEnabled: true,
     shadowMapSize: 1024,
+    pointShadowsEnabled: false,
+    pointShadowMapSize: 512,
+    contactShadowsEnabled: true,
     bloomEnabled: true,
     bloomStrength: 0.55,
     bloomRadius: 0.4,
@@ -121,6 +190,9 @@ export const QUALITY_PRESETS = Object.freeze({
     starCount: 2000,
     shadowsEnabled: true,
     shadowMapSize: 2048,
+    pointShadowsEnabled: true,
+    pointShadowMapSize: 512,
+    contactShadowsEnabled: true,
     bloomEnabled: true,
     bloomStrength: 0.65,
     bloomRadius: 0.5,
@@ -130,3 +202,35 @@ export const QUALITY_PRESETS = Object.freeze({
     gustSnowCount: 280
   }
 });
+
+/**
+ * Registry of major scene obstacles with footprints to prevent overlapping placement.
+ */
+export function getSceneObstacles() {
+  return [
+    { id: 'northPole', x: 0, z: 0, radius: 2.5 },
+    { id: 'workshop', x: -10, z: -7, radius: 5.6 },
+    { id: 'elfVillageSquare', x: -18.0, z: 8.5, radius: 8.2 },
+    { id: 'mainChristmasTree', x: 4.5, z: -3.5, radius: 2.5 },
+    { id: 'secondChristmasTree', x: -4.8, z: -9.2, radius: 2.2 },
+    { id: 'iceLake', x: 8.5, z: 4.5, radius: 6.8 },
+    { id: 'santaCouple', x: -10.51, z: -0.74, radius: 1.8 },
+    { id: 'mailbox', x: -3.1, z: -1.75, radius: 0.90 }
+  ];
+}
+
+/**
+ * Checks if a circular object at (x, z) with radius overlaps with any existing obstacles.
+ */
+export function checkOverlap(x, z, radius, obstacles) {
+  for (const obs of obstacles) {
+    const dist = Math.hypot(x - obs.x, z - obs.z);
+    const minDist = radius + obs.radius;
+    if (dist < minDist) {
+      return { collides: true, obstacle: obs, dist, minDist };
+    }
+  }
+  return { collides: false };
+}
+
+

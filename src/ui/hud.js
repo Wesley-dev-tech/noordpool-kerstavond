@@ -4,6 +4,8 @@ export function createHUD(callbacks) {
   const loadingScreen = document.getElementById('loading-screen');
   const fpsCounterEl = document.getElementById('fps-counter');
   const fpsToggleBtn = document.getElementById('btn-fps');
+  const debugToggleBtn = document.getElementById('btn-debug');
+  const elfVillageBtn = document.getElementById('btn-elf-village');
   const audioToggleBtn = document.getElementById('btn-audio');
   const tooltipEl = document.getElementById('scene-tooltip');
   const hoverTooltipEl = document.getElementById('hover-tooltip');
@@ -27,6 +29,23 @@ export function createHUD(callbacks) {
     fpsToggleBtn.addEventListener('click', () => {
       if (callbacks.onToggleFps) {
         callbacks.onToggleFps();
+      }
+    });
+  }
+
+  if (debugToggleBtn) {
+    debugToggleBtn.addEventListener('click', () => {
+      if (callbacks.onToggleDebug) {
+        const visible = callbacks.onToggleDebug();
+        debugToggleBtn.classList.toggle('active', visible);
+      }
+    });
+  }
+
+  if (elfVillageBtn) {
+    elfVillageBtn.addEventListener('click', () => {
+      if (callbacks.onFlyToElfVillage) {
+        callbacks.onFlyToElfVillage();
       }
     });
   }
@@ -75,17 +94,37 @@ export function createHUD(callbacks) {
       setActiveQualityButton(qualityManager.getLevel());
     }
 
-    // 2. Project 3D Tooltip to 2D Screen coordinates
+    if (debugToggleBtn && callbacks.isObstacleDebugActive) {
+      debugToggleBtn.classList.toggle('active', callbacks.isObstacleDebugActive());
+    }
+
+    // 2. Project 3D Tooltip to 2D Screen coordinates (met viewport clamping zodat ze altijd binnen beeld blijven)
     if (tooltipEl && interactionManager && camera) {
       const tip = interactionManager.getActiveTooltip();
       if (tip) {
         projVec.copy(tip.worldPos).project(camera);
         if (projVec.z < 1.0) {
-          const x = (projVec.x * 0.5 + 0.5) * window.innerWidth;
-          const y = (-projVec.y * 0.5 + 0.5) * window.innerHeight;
+          const rawX = (projVec.x * 0.5 + 0.5) * window.innerWidth;
+          const rawY = (-projVec.y * 0.5 + 0.5) * window.innerHeight;
           tooltipEl.textContent = tip.text;
-          tooltipEl.style.transform = `translate3d(${Math.round(x)}px, ${Math.round(y)}px, 0) translate(-50%, -100%)`;
           tooltipEl.classList.add('visible');
+
+          // Ensure tooltip is measured and clamped strictly within viewport boundaries
+          const tipW = tooltipEl.offsetWidth || 240;
+          const tipH = tooltipEl.offsetHeight || 44;
+          const padX = 16;
+          const padTop = 64; // Ruimte onder HUD headerknoppen
+          const padBottom = 20;
+
+          const minX = tipW * 0.5 + padX;
+          const maxX = window.innerWidth - tipW * 0.5 - padX;
+          const clampedX = maxX > minX ? Math.min(maxX, Math.max(minX, rawX)) : window.innerWidth * 0.5;
+
+          const minY = tipH + padTop;
+          const maxY = window.innerHeight - padBottom;
+          const clampedY = maxY > minY ? Math.min(maxY, Math.max(minY, rawY)) : window.innerHeight * 0.5;
+
+          tooltipEl.style.transform = `translate3d(${Math.round(clampedX)}px, ${Math.round(clampedY)}px, 0) translate(-50%, -100%)`;
         } else {
           tooltipEl.classList.remove('visible');
         }
@@ -94,15 +133,26 @@ export function createHUD(callbacks) {
       }
     }
 
-    // 3. Small Hover Tooltip with clickable object's name near the cursor
+    // 3. Small Hover Tooltip with clickable object's name near the cursor (binnen viewport)
     if (hoverTooltipEl && interactionManager) {
       const hover = interactionManager.getHoverInfo ? interactionManager.getHoverInfo() : null;
       if (hover && hover.label) {
         hoverTooltipEl.textContent = hover.label;
-        const hx = Math.min(window.innerWidth - 16, Math.max(16, Math.round(hover.x)));
-        const hy = Math.max(28, Math.round(hover.y - 14));
-        hoverTooltipEl.style.transform = `translate3d(${hx}px, ${hy}px, 0) translate(-50%, -100%)`;
         hoverTooltipEl.classList.add('visible');
+        const tipW = hoverTooltipEl.offsetWidth || 120;
+        const tipH = hoverTooltipEl.offsetHeight || 28;
+        const pad = 12;
+        const padTop = 50;
+
+        const minX = tipW * 0.5 + pad;
+        const maxX = window.innerWidth - tipW * 0.5 - pad;
+        const hx = maxX > minX ? Math.min(maxX, Math.max(minX, hover.x)) : window.innerWidth * 0.5;
+
+        const minY = tipH + padTop;
+        const maxY = window.innerHeight - pad;
+        const hy = maxY > minY ? Math.min(maxY, Math.max(minY, hover.y - 14)) : window.innerHeight * 0.5;
+
+        hoverTooltipEl.style.transform = `translate3d(${Math.round(hx)}px, ${Math.round(hy)}px, 0) translate(-50%, -100%)`;
       } else {
         hoverTooltipEl.classList.remove('visible');
       }

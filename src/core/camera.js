@@ -122,7 +122,7 @@ export function createCamera(rendererDomElement) {
     }
 
     const travelDist = camera.position.distanceTo(destPos);
-    const duration = THREE.MathUtils.clamp(0.95 + travelDist * 0.032, 1.0, 1.65);
+    const duration = options.duration ?? THREE.MathUtils.clamp(1.2 + travelDist * 0.045, 1.4, 2.5);
     const arcHeight = Math.min(1.6, travelDist * 0.06);
 
     startTransition(destPos, targetWorldPos, duration, arcHeight);
@@ -150,6 +150,16 @@ export function createCamera(rendererDomElement) {
 
     startTransition(destPos, destTarget, duration, arcHeight);
     return true;
+  }
+
+  function teleport(cameraPos, targetPos) {
+    inIntroFlight = false;
+    activeTransition = null;
+    isFocusedOnObject = true;
+    camera.position.copy(cameraPos);
+    controls.target.copy(targetPos);
+    controls.enabled = true;
+    controls.update();
   }
 
   function startIntroFlight() {
@@ -265,6 +275,7 @@ export function createCamera(rendererDomElement) {
     controls,
     startIntroFlight,
     skipIntroFlight,
+    teleport,
     flyToObject,
     returnFromFocus,
     isFocused: () => isFocusedOnObject,

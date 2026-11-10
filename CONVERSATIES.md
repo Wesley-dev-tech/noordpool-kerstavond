@@ -27,6 +27,12 @@ Dit document bevat een chronologisch overzicht en de volledige transcripties van
 | 19 | `2026-11-09T13:57:19Z` | **Uploaden en publiceren naar GitHub Pages** | Gemini 4 Argon (Medium) | [Open in Antigravity](conversation://e9115183-f5ce-4557-869c-219161f5180d) | [conversaties/19-github-pages-deployment.md](./conversaties/19-github-pages-deployment.md) |
 | 20 | `2026-11-09T14:04:21Z` | **Richtingsaanwijzers op de Noordpoolpaal volledig leesbaar maken met marge & GitHub commit** | Gemini 4 Argon (Medium) | [Open in Antigravity](conversation://dea75166-38a2-4b51-999a-733e021773ff) | [conversaties/20-noordpoolpaal-richtingsaanwijzers-en-commit.md](./conversaties/20-noordpoolpaal-richtingsaanwijzers-en-commit.md) |
 | 21 | `2026-11-09T14:13:09Z` | **Alle conversaties bundelen in nieuw project 'Noordpool kerstmis 3D scéne'** | Gemini 4 Argon (Medium) | [Open in Antigravity](conversation://c681db0e-94b2-48b4-9437-c54837ff1f10) | [conversaties/21-alle-conversaties-in-nieuw-project.md](./conversaties/21-alle-conversaties-in-nieuw-project.md) |
+| 22 | `2026-11-09T18:42:48Z` | **Interactie werkplaatsdeur: lichtbundel weg, veereffect, elfje bezorgt cadeau onder boom, glitterwolk, zwaaien naar camera, max 10 cadeaus met 'De boom zit vol! 🎁' & fade-out** | Gemini 3.8 Flash (Medium) | [Open in Antigravity](conversation://8a1fb471-ca2f-4fdb-b7ce-fa774d607da3) | [conversaties/22-werkplaatsdeur-elf-cadeau-animatie.md](./conversaties/22-werkplaatsdeur-elf-cadeau-animatie.md) |
+| 40 | `2026-11-09T19:24:12Z` | **360° Noorderlicht over de hele hemel (4 gebogen ringen, camera-tracking, zachte noise-fading, renderOrder)** | Gemini 3.8 Flash (High) | [Open in Antigravity](conversation://c15ed5bd-bd9e-413b-a672-0fa7bd9c8f11) | [conversaties/40-noorderlicht-360-graden-rond-de-horizon.md](./conversaties/40-noorderlicht-360-graden-rond-de-horizon.md) |
+| 41 | `2026-11-09T19:22:40Z` | **Volledige herbouw ladder & elfje Jingle (70° ladder op getGroundHeight, elf aan buitenkant op 4e sport, lichtslinger & klim-animatie)** | Gemini 3.8 Flash (High) | [Open in Antigravity](conversation://1914f0f9-aab1-400f-aaba-6c2f87d51036) | [conversaties/41-elf-op-de-ladder-volledig-herbouwd.md](./conversaties/41-elf-op-de-ladder-volledig-herbouwd.md) |
+| 43 | `2026-11-09T19:50:41Z` | **Volledige herbouw houthakkende elf Bram (arm-hiërarchie pivots, inverse kinematics, 5 keyframes, splijtende houtblokken & nieuw blok)** | Gemini 3.8 Flash (High) | [Open in Antigravity](conversation://373cbc5b-74fd-4bb4-8e3d-db601317fd45) | [conversaties/43-houthakker-animatie-volledig-herbouwd.md](./conversaties/43-houthakker-animatie-volledig-herbouwd.md) |
+| 44 | `2026-11-09T20:41:25Z` | **Volledige herbouw sneeuwballengevecht & iglo-sneeuwmuurtjes (createElf Bramble & Noel, gebogen 2-laags muurtjes in verband, gooi-animatie via schouder/elleboog-pivots, parabool & wegduiken)** | Claude Sonnet 5.5 / Gemini 3.8 Flash | [Open in Antigravity](conversation://a5edbfdf-6fbd-4576-a7c1-323d1218bd3b) | [conversaties/44-sneeuwballengevecht-en-sneeuwmuurtjes-volledig-herbouwd.md](./conversaties/44-sneeuwballengevecht-en-sneeuwmuurtjes-volledig-herbouwd.md) |
+| 45 | `2026-11-10T09:01:44Z` | **Alle padlantaarns identiek zwart (InstancedMesh voor paaltjes en lampjes, individuele flakkerfase, warme sneeuwgloed)** | Gemini 3.8 Flash (High) | [Open in Antigravity](conversation://59ad2dd4-685c-4a2e-be56-47eded64eab4) | [conversaties/45-alle-padlantaarns-identiek-zwart-instanced.md](./conversaties/45-alle-padlantaarns-identiek-zwart-instanced.md) |
 
 ---
 
@@ -841,7 +847,130 @@ zet alle conversatie's in een nieuw project en noem dit Noordpool kerstmis 3D sc
 
 #### Antwoord Agent
 
-*(Huidige sessie: projectmap `Noordpool kerstmis 3D scéne` aangemaakt met de volledige 3D-scène, bijgewerkt `LOGBOEK.md`, `CONVERSATIES.md` en alle 21 afzonderlijke conversatiebestanden in `conversaties/`.)*
+*(Projectmap `Noordpool kerstmis 3D scéne` aangemaakt met de volledige 3D-scène, bijgewerkt `LOGBOEK.md`, `CONVERSATIES.md` en alle afzonderlijke conversatiebestanden in `conversaties/`.)*
+
+---
+
+## 40. Noorderlicht over de hele hemel (360°-band, camera-tracking & renderOrder)
+
+- **Conversatie-ID**: [`c15ed5bd-bd9e-413b-a672-0fa7bd9c8f11`](conversation://c15ed5bd-bd9e-413b-a672-0fa7bd9c8f11)
+- **Gestart op**: `2026-11-09T20:24:12+01:00`
+- **Model(len)**: Gemini 3.8 Flash (High)
+- **Los bestand**: [conversaties/40-noorderlicht-360-graden-rond-de-horizon.md](./conversaties/40-noorderlicht-360-graden-rond-de-horizon.md)
+
+### Beurt 1 — Gebruiker (`2026-11-09T20:24:12+01:00` · Gemini 3.8 Flash (High))
+
+```text
+Het noorderlicht stopt halverwege de breedte van het scherm. Herbouw het zodat het
+de hele hemel omspant:
+- Vervang de huidige vlakke linten door 3 à 4 gebogen linten die als een brede band
+  rond de hele horizon lopen (open cilinders of een TubeGeometry langs een cirkel/ellips,
+  op 30–60° boven de horizon en met verschillende straal en hoogte), zodat je in elke
+  kijkrichting noorderlicht ziet.
+- Laat de band meebewegen met de positie van de camera (niet met de rotatie), net zoals
+  de hemelkoepel, zodat je er nooit langs of doorheen kan zoomen.
+- Geen harde begin- of eindpunten: de intensiteit varieert langs de band met noise,
+  zodat er natuurlijke zwakkere en fellere stukken zijn, en de onder- en bovenrand
+  vervagen zacht naar transparant.
+- Behoud de bestaande kleuren (groen-turquoise met paars bovenaan), de additive blending
+  en de golvende beweging in de shader.
+- Het noorderlicht mag niet voor de maan of de slee komen (correcte renderOrder/depth)
+  en niet achter de HUD verdwijnen.
+- Controle: draai de camera 360° rond en maak screenshots in 4 richtingen. Bevestig dat
+  het noorderlicht overal doorloopt zonder harde rand. Hou de fps rond 60.
+```
+
+#### Antwoord Agent
+
+Het noorderlicht is volledig herbouwd als 4 doorlopende cilindrische linten met procedurele vertex-golven en polaire noise. De band volgt de camerapositie, occludeert correct achter de maan en arrenslee, vervaagt aan onder- en bovenkant, en is geverifieerd via 360° screenshots in 4 windrichtingen op 60 FPS.
+
+---
+
+## 41. Volledige herbouw ladder & elfje Jingle (70° ladder op getGroundHeight, elf aan buitenkant op 4e sport, lichtslinger & klim-animatie)
+
+- **Conversatie-ID**: [`1914f0f9-aab1-400f-aaba-6c2f87d51036`](conversation://1914f0f9-aab1-400f-aaba-6c2f87d51036)
+- **Gestart op**: `2026-11-09T19:22:40Z`
+- **Model(len)**: Gemini 3.8 Flash (High)
+- **Los bestand**: [conversaties/41-elf-op-de-ladder-volledig-herbouwd.md](./conversaties/41-elf-op-de-ladder-volledig-herbouwd.md)
+
+### Beurt 1 — Gebruiker (`2026-11-09T19:22:40Z` · Gemini 3.8 Flash (High))
+
+```text
+De elf op de ladder is nog altijd niet correct. Herbouw deze scène volledig:
+
+- Zoek eerst in de code waar de ladder en deze elf worden aangemaakt, en verwijder de
+  oude code.
+- Ladder: twee staanders en minstens 6 sporten, schuin tegen de gevel van het huisje
+  (hoek ±70° met de grond). De voet staat op `getGroundHeight()`, ±1 m van de muur.
+  De top rust tegen de dakgoot.
+- Elf (via `createElf()`): staat op de 4e sport, aan de BUITENKANT van de ladder
+  (tussen de ladder en de camera, niet tussen de ladder en de muur), met zijn gezicht
+  naar de muur. Beide voeten op dezelfde sport, één hand aan een staander, de andere
+  hand omhoog naar de dakgoot.
+- Animatie: hij hangt een lichtslinger op. Hand omhoog, lampje vastmaken, het lampje
+  gaat aan, hand terug. Na 3 lampjes klimt hij één sport hoger of lager (voeten en
+  handen bewegen sport per sport mee).
+- Controle: maak een tijdelijke close-up camera van de zijkant en van voren, maak een
+  screenshot en bevestig dat de elf aan de buitenkant van de ladder staat, met zijn
+  voeten op de sport en niets door elkaar steekt.
+```
+
+#### Antwoord Agent
+
+De scène is volledig herbouwd volgens alle geometrische en visuele specificaties:
+1. De oude code is volledig verwijderd.
+2. De ladder heeft 2 houten staanders en 8 sporten, helt onder exact 70° met de grond, staat met zijn voet op `getGroundHeight()` (0,95 m van de gevelwand) en rust met zijn top tegen de dakgoot.
+3. Elfje Jingle (`createElf()`) staat op de 4e sport (index 3) 100% aan de BUITENKANT van de ladder (tussen ladder en camera), kijkt naar de gevel, heeft beide voeten op de sport, één hand aan de linkerstaander en de andere hand omhoog naar de dakgoot.
+4. Volledige lichtslingeranimatie: lampje omhoog brengen, vastmaken, het lampje gaat fel aan, hand terug; na 3 lampjes klimt hij sport-per-sport met afwisselende beenbewegingen en meebewegende handen naar de volgende sport.
+5. Gecontroleerd en bevestigd via close-up screenshots van de zijkant (`ladder_side.png`), van voren (`ladder_front.png`) en in perspectief (`ladder_view.png`).
+
+---
+
+## 43. Volledige herbouw houthakkende elf Bram (arm-hiërarchie pivots, inverse kinematics, 5 keyframes, splijtende houtblokken & nieuw blok)
+
+- **Conversatie-ID**: [`373cbc5b-74fd-4bb4-8e3d-db601317fd45`](conversation://373cbc5b-74fd-4bb4-8e3d-db601317fd45)
+- **Gestart op**: `2026-11-09T19:50:41Z`
+- **Model(len)**: Gemini 3.8 Flash (High)
+- **Los bestand**: [conversaties/43-houthakker-animatie-volledig-herbouwd.md](./conversaties/43-houthakker-animatie-volledig-herbouwd.md)
+
+### Beurt 1 — Gebruiker (`2026-11-09T19:50:41Z` · Gemini 3.8 Flash (High))
+
+```text
+De houthakkende elf slaat nog altijd fout. Herbouw de animatie volledig:
+
+- Zoek de bestaande code en verwijder de oude animatie.
+- Bouw de armen als een hiërarchie: schouder (pivot bovenaan de arm) → bovenarm →
+  elleboog (pivot) → onderarm → hand. Draai alleen rond die pivots.
+- De bijl is een child van de rechterhand. De linkerhand wordt elk frame naar een punt
+  lager op de steel gezet, zodat beide handen de bijl vasthouden.
+- Keyframes (met easing):
+  1. Rust (0,0 s): bijl schuin voor het lichaam, blad op het blok.
+  2. Ophalen (0,0–0,6 s, ease-in-out): beide schouders roteren naar achteren tot boven
+     het hoofd, bovenlichaam leunt 10° achterover.
+  3. Slag (0,6–0,8 s, ease-in, snel): schouders zwaaien naar voren en naar beneden,
+     bovenlichaam buigt 20° voorover, knieën veren licht.
+  4. Impact (0,8 s): het blad raakt precies het midden van het blok, 0,15 s stilstand,
+     een paar houtsplinters, een "tok" als het geluid aanstaat.
+  5. Terug naar rust (0,95–1,6 s), daarna een pauze van 0,8 s.
+- Na 3 slagen splijt het blok in twee helften die opzij vallen, en zet de elf een
+  nieuw blok klaar.
+- Controle: close-up van de zijkant, screenshots op elk keyframe, en bevestig dat
+  beide handen de bijl vasthouden en het blad het blok raakt.
+```
+
+#### Antwoord Agent
+
+De houthakker-scène en animatie zijn volledig opnieuw opgebouwd:
+1. Armen opgebouwd als anatomische gewrichtshiërarchie: schouder (pivot aan torso) → bovenarm → elleboog (pivot) → onderarm → hand met rotaties puur rond die pivots.
+2. Bijl is een direct child van `rightHand`. De linkerarm lost via een analytische Two-Bone Inverse Kinematics solver elk frame zijn schouder- en elleboogrotaties op zodat `leftHand` exact `leftGripTarget` op de steel grijpt (afstand 0 mm afwijking).
+3. 5 exacte keyframes met correcte timings en easing geïmplementeerd:
+   - **Rust (0,0 s)**: blad direct op het blok (2,9 mm van het hart).
+   - **Ophalen (0,0–0,6 s, ease-in-out)**: schouders naar achteren tot boven het hoofd, bovenlichaam leunt 10° achterover.
+   - **Slag (0,6–0,8 s, ease-in)**: snelle acceleratie naar beneden, torso 20° voorover, knieën veren in.
+   - **Impact (0,8 s)**: blad raakt exact het midden van het blok (2,0 mm speling), 0,15 s stilstand, houtsplinters spatten uiteen en "tok" geluid klinkt (`audio.playWoodChopTok()`).
+   - **Terug naar rust (0,95–1,6 s)** en **pauze van 0,8 s** (1,6–2,4 s).
+4. Na 3 slagen splijt het blok in twee helften die zijwaarts naar beneden tuimelen (`animateSplitFall`). Het elfje draait naar de houtstapel, bukt, pakt een nieuw houtblok op, zet dit rechtop op de stronk (`resetLog()`) en hervat de cyclus.
+5. Gecontroleerd via close-up screenshots van de zijkant (`kf1_rust.png` t/m `kf8_nieuw_blok.png`).
 
 ---
 

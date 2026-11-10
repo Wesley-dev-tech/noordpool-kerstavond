@@ -5,6 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Noordpool · 90° N — Kerstavond in 3D</title>
   <link rel="stylesheet" href="./style.css" />
+  <script>
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      window.onerror = function(msg, url, line, col, err) {
+        fetch('/api/log?error=' + encodeURIComponent(msg + ' (' + url + ':' + line + ':' + col + ') ' + (err && err.stack ? err.stack : ''))).catch(() => {});
+      };
+      window.addEventListener('unhandledrejection', function(e) {
+        fetch('/api/log?error=' + encodeURIComponent('Unhandled rejection: ' + (e.reason && e.reason.stack ? e.reason.stack : e.reason))).catch(() => {});
+      });
+    }
+  </script>
   <script type="importmap">
     {
       "imports": {
@@ -30,7 +40,7 @@
   <header id="hud-top">
     <div class="hud-pill hud-instructions">
       <strong>Noordpool · 90° N</strong>
-      <span>Sleep: rondkijken · Scroll: zoom · Klik: paal, postbus, cadeaus, boom, deur, sneeuwpop, slee, Kerstman &amp; Kerstvrouw · <em>Dubbelklik: vlieg naar object (Esc = terug)</em></span>
+      <span>Sleep: rondkijken · Scroll: zoom · Klik: paal, postbus, cadeaus, boom, deur, sneeuwpop, slee, Kerstman, Kerstvrouw &amp; elfendorp · <em>Dubbelklik: vlieg naar object (Esc = terug)</em></span>
     </div>
 
     <div class="hud-controls">
@@ -47,6 +57,14 @@
 
       <span id="fps-counter" class="hud-pill fps-badge" style="display: none;">60 FPS</span>
 
+      <button type="button" id="btn-debug" class="hud-pill hud-btn" title="Toets D: Toon obstakel- en botsingscirkels">
+        Obstakels (D)
+      </button>
+
+      <button type="button" id="btn-elf-village" class="hud-pill hud-btn" title="Vlieg zacht naar het Elfendorp">
+        🧝 Elfendorp
+      </button>
+
       <button type="button" id="btn-audio" class="hud-pill hud-btn active">
         🔊 Geluid: Aan
       </button>
@@ -57,6 +75,6 @@
   <div id="scene-tooltip" role="status" aria-live="polite"></div>
   <div id="hover-tooltip" aria-hidden="true"></div>
 
-  <script type="module" src="./src/main.js?v=3"></script>
+  <script type="module" src="./src/main.js?v=v2_safe"></script>
 </body>
 </html>

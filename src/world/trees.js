@@ -1,14 +1,35 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { COLORS, COORDS, GROUPS } from '../config.js';
-import { fbm2D, getTerrainHeight } from '../utils/procedural.js';
+import { COLORS, COORDS, GROUPS, getSceneObstacles, checkOverlap } from '../config.js';
+import { fbm2D, getTerrainHeight, getGroundHeight } from '../utils/procedural.js';
 
 export function createTrees(scene, interaction, audio) {
   const group = new THREE.Group();
   group.name = GROUPS.GROUP_TREES;
 
   // 1. Realistic Wild Pine Geometry with Irregular Branches & Lumpy Snow Clumps
-  const allPines = [...COORDS.litPines, ...COORDS.forestPines];
+  const rawPines = [...COORDS.litPines, ...COORDS.forestPines];
+  const sceneObstacles = getSceneObstacles();
+
+  // Validate placements and avoid overlap with buildings, village clearing (10m radius), and objects
+  const allPines = rawPines.map((p, idx) => {
+    const pineCopy = { ...p };
+    const treeRadius = 1.4 * pineCopy.scale;
+    const check = checkOverlap(pineCopy.x, pineCopy.z, treeRadius, sceneObstacles);
+    if (check.collides) {
+      console.warn(
+        `[Bomen] Dennenboom #${idx + 1} op (${pineCopy.x}, ${pineCopy.z}) overlapt met ${check.obstacle.id} (afstand: ${check.dist.toFixed(1)} m, vereist: ${check.minDist.toFixed(1)} m). Wordt verplaatst.`
+      );
+      const dx = pineCopy.x - check.obstacle.x;
+      const dz = pineCopy.z - check.obstacle.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const push = (check.minDist - check.dist) + 0.8;
+      pineCopy.x += (dx / len) * push;
+      pineCopy.z += (dz / len) * push;
+    }
+    return pineCopy;
+  });
+
   const pineCount = allPines.length; // 10 instanced wild pines
 
   // Gnarled, slightly curved trunk extending into upper crown
@@ -274,7 +295,7 @@ export function createTrees(scene, interaction, audio) {
   const wildPineMatrices = [];
 
   allPines.forEach((p, idx) => {
-    const groundY = getTerrainHeight(p.x, p.z);
+    const groundY = getGroundHeight(p.x, p.z);
     dummy.position.set(p.x, groundY, p.z);
     // Slight natural lean + distinct Y rotation for each wild pine
     const tiltX = Math.sin(idx * 2.3 + 0.5) * 0.035;
@@ -385,10 +406,127 @@ export function createTrees(scene, interaction, audio) {
   });
   group.add(instWildBaubles);
 
-  // 2. Build 2 Decorated Hero Christmas Trees
-  function buildDecoratedTree(cfg, isClickableMain) {
+  // 2. Helper Textures & Geometries for Village Tree Decorations
+  let cachedCandyCaneTex = null;
+  function getCandyCaneTexture() {
+    if (cachedCandyCaneTex) return cachedCandyCaneTex;
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 64, 64);
+    ctx.fillStyle = '#d92027';
+    for (let x = -64; x < 128; x += 16) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x + 32, 64);
+      ctx.lineTo(x + 40, 64);
+      ctx.lineTo(x + 8, 0);
+      ctx.closePath();
+      ctx.fill();
+    }
+    cachedCandyCaneTex = new THREE.CanvasTexture(canvas);
+    cachedCandyCaneTex.wrapS = THREE.RepeatWrapping;
+    cachedCandyCaneTex.wrapT = THREE.RepeatWrapping;
+    cachedCandyCaneTex.repeat.set(1, 4);
+    return cachedCandyCaneTex;
+  }
+
+  let cachedPeppermintTex = null;
+  function getPeppermintTexture() {
+    if (cachedPeppermintTex) return cachedPeppermintTex;
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 128, 128);
+    ctx.fillStyle = '#d92027';
+    const cx = 64, cy = 64;
+    for (let i = 0; i < 8; i++) {
+      const a1 = (i * 2 * Math.PI) / 8;
+      const a2 = a1 + (Math.PI / 8);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, 60, a1, a2);
+      ctx.closePath();
+      ctx.fill();
+    }
+    cachedPeppermintTex = new THREE.CanvasTexture(canvas);
+    return cachedPeppermintTex;
+  }
+
+  function createCandyCaneGeo(scale) {
+    const pts = [
+      new THREE.Vector3(0, -0.11 * scale, 0),
+      new THREE.Vector3(0, 0.07 * scale, 0),
+      new THREE.Vector3(0.012 * scale, 0.10 * scale, 0),
+      new THREE.Vector3(0.038 * scale, 0.10 * scale, 0),
+      new THREE.Vector3(0.052 * scale, 0.07 * scale, 0)
+    ];
+    const curve = new THREE.CatmullRomCurve3(pts);
+    return new THREE.TubeGeometry(curve, 18, 0.011 * scale, 6, false);
+  }
+
+  function createIcicleGeo(scale) {
+    const geo = new THREE.ConeGeometry(0.020 * scale, 0.22 * scale, 6, 1);
+    geo.rotateX(Math.PI);
+    geo.translate(0, -0.10 * scale, 0);
+    return geo;
+  }
+
+  function createUnderTreeGift(x, z, size, boxColor, ribbonColor) {
+    const giftGroup = new THREE.Group();
+    const gy = getGroundHeight(x, z);
+    giftGroup.position.set(x, gy, z);
+
+    const bH = size * 0.85;
+    const boxMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(size, bH, size),
+      new THREE.MeshStandardMaterial({
+        color: boxColor,
+        roughness: 0.45,
+        metalness: 0.12
+      })
+    );
+    boxMesh.position.y = bH * 0.5;
+    boxMesh.castShadow = true;
+    boxMesh.receiveShadow = true;
+    giftGroup.add(boxMesh);
+
+    const ribMat = new THREE.MeshStandardMaterial({
+      color: ribbonColor,
+      metalness: 0.75,
+      roughness: 0.25
+    });
+    const rThick = size * 0.14;
+    const rH = bH + 0.005;
+    const rib1 = new THREE.Mesh(new THREE.BoxGeometry(size + 0.005, rH, rThick), ribMat);
+    rib1.position.y = boxMesh.position.y;
+    giftGroup.add(rib1);
+    const rib2 = new THREE.Mesh(new THREE.BoxGeometry(rThick, rH, size + 0.005), ribMat);
+    rib2.position.y = boxMesh.position.y;
+    giftGroup.add(rib2);
+
+    const bow = new THREE.Mesh(new THREE.TorusGeometry(size * 0.16, size * 0.04, 6, 10), ribMat);
+    bow.rotation.x = Math.PI / 2;
+    bow.rotation.y = 0.65;
+    bow.position.y = bH + 0.015;
+    giftGroup.add(bow);
+
+    return giftGroup;
+  }
+
+  // 3. Build Decorated Christmas Trees (Hero trees & 5 Village Trees)
+  function buildDecoratedTree(cfg, options = {}) {
+    const isClickableMain = typeof options === 'boolean' ? options : !!options.isClickableMain;
+    const theme = (typeof options === 'object' && options.theme) || (isClickableMain ? 'hero_main' : 'hero_second');
+    const isVillageTree = typeof options === 'object' && !!options.isVillageTree;
     const treeGroup = new THREE.Group();
-    const groundY = getTerrainHeight(cfg.x, cfg.z);
+    treeGroup.name = cfg.id || 'decoratedTree';
+
+    const groundY = getGroundHeight(cfg.x, cfg.z);
     treeGroup.position.set(cfg.x, groundY, cfg.z);
     const scale = cfg.height / 4.35;
 
@@ -408,48 +546,41 @@ export function createTrees(scene, interaction, audio) {
 
     const snowMesh = new THREE.Mesh(mergedSnowCapGeo, snowCapMat);
     snowMesh.scale.setScalar(scale);
+    snowMesh.castShadow = true;
+    snowMesh.receiveShadow = true;
     treeGroup.add(snowMesh);
 
     const tMesh = new THREE.Mesh(trunkGeo, trunkMat);
     tMesh.scale.setScalar(scale);
+    tMesh.castShadow = true;
     treeGroup.add(tMesh);
 
-    // Golden spiral garland (TubeGeometry)
-    const garlandPoints = [];
-    const turns = 4.5;
-    const steps = 72;
-    for (let i = 0; i <= steps; i++) {
-      const u = i / steps;
-      const y = (0.82 + u * 3.22) * scale;
-      const angle = u * turns * Math.PI * 2;
-      const wave = 1.0 + Math.cos(angle * 3.5) * 0.08;
-      const r = (1.46 * (1 - u * 0.76) * wave + 0.06) * scale;
-      garlandPoints.push(new THREE.Vector3(Math.cos(angle) * r, y, Math.sin(angle) * r));
+    // Baubles (ornaments) via InstancedMesh with theme-specific palettes
+    let baublePalette = wildBaublePalette;
+    if (theme === 'gold_white') {
+      baublePalette = [0xffcc33, 0xffe066, 0xdfa015, 0xffd700, 0xf5c518];
+    } else if (theme === 'candycane_red') {
+      baublePalette = [0xd92027, 0xbb141a, 0xee2222, 0x990d12, 0xff4d4d];
+    } else if (theme === 'multicolor_silver') {
+      baublePalette = [0xf5f8fc, 0xd0dae4, 0xe4ecf4, 0xb8c6d4, 0xffffff];
+    } else if (theme === 'blue_icicles') {
+      baublePalette = [0x1e78ff, 0xf0f6ff, 0x0d47a1, 0x42a5f5, 0xd2e5f8, 0x2979ff];
+    } else if (theme === 'elf_tree') {
+      baublePalette = [0x00c853, 0xd92027, 0xffcc33, 0xab47bc, 0x00e676, 0xff5722];
     }
-    const garlandCurve = new THREE.CatmullRomCurve3(garlandPoints);
-    const garlandGeo = new THREE.TubeGeometry(garlandCurve, 72, 0.045 * scale, 6, false);
-    const garlandMat = new THREE.MeshStandardMaterial({
-      color: COLORS.GOLD_METAL,
-      metalness: 0.85,
-      roughness: 0.22,
-      emissive: 0x553300,
-      emissiveIntensity: 0.35
-    });
-    treeGroup.add(new THREE.Mesh(garlandGeo, garlandMat));
 
-    // Baubles (ornaments) anchored to the irregular branch points + spiral accents
-    const baubleGeo = new THREE.SphereGeometry(0.1 * scale, 12, 12);
+    const baubleGeo = new THREE.SphereGeometry(0.09 * scale, 12, 10);
     const baubleMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
       metalness: 0.88,
       roughness: 0.14,
-      emissive: 0x221508,
+      emissive: 0x181410,
       emissiveIntensity: 0.25
     });
-    const heroBaubleCount = branchAttachmentPoints.length;
-    const instBaubles = new THREE.InstancedMesh(baubleGeo, baubleMat, heroBaubleCount);
+    const treeBaubleCount = branchAttachmentPoints.length;
+    const instBaubles = new THREE.InstancedMesh(baubleGeo, baubleMat, treeBaubleCount);
 
-    for (let b = 0; b < heroBaubleCount; b++) {
+    for (let b = 0; b < treeBaubleCount; b++) {
       const bp = branchAttachmentPoints[b];
       dummy.position.set(
         bp.tipX * 0.94 * scale,
@@ -460,36 +591,263 @@ export function createTrees(scene, interaction, audio) {
       dummy.rotation.set(0, 0, 0);
       dummy.updateMatrix();
       instBaubles.setMatrixAt(b, dummy.matrix);
-      tempColor.setHex(wildBaublePalette[b % wildBaublePalette.length]);
+      tempColor.setHex(baublePalette[b % baublePalette.length]);
       instBaubles.setColorAt(b, tempColor);
     }
     treeGroup.add(instBaubles);
 
-    // Glowing Top Star
-    const starMat = new THREE.MeshStandardMaterial({
-      color: COLORS.GOLD_METAL,
-      emissive: 0xffbb22,
-      emissiveIntensity: 3.2,
-      metalness: 0.8,
-      roughness: 0.15
-    });
-    const starGeo = new THREE.OctahedronGeometry(0.28 * scale, 0);
-    const starMesh = new THREE.Mesh(starGeo, starMat);
-    starMesh.position.y = 4.42 * scale;
+    // Glowing Top Star / Piek (Ornate toppers)
+    let starMesh, starMat;
+    if (theme === 'candycane_red') {
+      // Ruby crystal piek (pointed tree topper with base bead)
+      const piekSpire = new THREE.CylinderGeometry(0.012 * scale, 0.075 * scale, 0.44 * scale, 8);
+      const piekBead = new THREE.SphereGeometry(0.072 * scale, 8, 8);
+      piekBead.translate(0, -0.22 * scale, 0);
+      starMat = new THREE.MeshStandardMaterial({
+        color: 0xff1e38,
+        emissive: 0xd9142e,
+        emissiveIntensity: 3.4,
+        metalness: 0.85,
+        roughness: 0.15
+      });
+      starMesh = new THREE.Group();
+      starMesh.add(new THREE.Mesh(piekSpire, starMat));
+      starMesh.add(new THREE.Mesh(piekBead, starMat));
+      starMesh.position.y = 4.46 * scale;
+    } else if (theme === 'blue_icicles') {
+      // Ice crystal star (pale cyan / diamond frost)
+      starMat = new THREE.MeshStandardMaterial({
+        color: 0x99e6ff,
+        emissive: 0x44ccee,
+        emissiveIntensity: 3.4,
+        metalness: 0.85,
+        roughness: 0.12
+      });
+      const starGeo = new THREE.IcosahedronGeometry(0.24 * scale, 0);
+      starMesh = new THREE.Mesh(starGeo, starMat);
+      starMesh.position.y = 4.42 * scale;
+    } else if (theme === 'multicolor_silver') {
+      // Brilliant silver diamond star
+      starMat = new THREE.MeshStandardMaterial({
+        color: 0xf5f8fc,
+        emissive: 0xdde8f8,
+        emissiveIntensity: 3.2,
+        metalness: 0.95,
+        roughness: 0.12
+      });
+      const starGeo = new THREE.OctahedronGeometry(0.26 * scale, 0);
+      starMesh = new THREE.Mesh(starGeo, starMat);
+      starMesh.position.y = 4.42 * scale;
+    } else if (theme === 'elf_tree') {
+      // Whimsical elven star with tiny golden bell underneath
+      starMat = new THREE.MeshStandardMaterial({
+        color: COLORS.GOLD_METAL,
+        emissive: 0xffcc22,
+        emissiveIntensity: 3.5,
+        metalness: 0.85,
+        roughness: 0.18
+      });
+      const starGeo = new THREE.OctahedronGeometry(0.24 * scale, 0);
+      const bellGeo = new THREE.CylinderGeometry(0.012 * scale, 0.042 * scale, 0.055 * scale, 8);
+      bellGeo.translate(0, -0.16 * scale, 0);
+      starMesh = new THREE.Group();
+      starMesh.add(new THREE.Mesh(starGeo, starMat));
+      starMesh.add(new THREE.Mesh(bellGeo, starMat));
+      starMesh.position.y = 4.42 * scale;
+    } else {
+      // Golden star for gold_white and hero trees
+      starMat = new THREE.MeshStandardMaterial({
+        color: COLORS.GOLD_METAL,
+        emissive: 0xffbb22,
+        emissiveIntensity: 3.2,
+        metalness: 0.8,
+        roughness: 0.15
+      });
+      const starGeo = new THREE.OctahedronGeometry((isClickableMain ? 0.28 : 0.25) * scale, 0);
+      starMesh = new THREE.Mesh(starGeo, starMat);
+      starMesh.position.y = 4.42 * scale;
+    }
     treeGroup.add(starMesh);
 
+    // Theme-Specific Accessories & Extra Decorations
+    if (theme === 'hero_main' || theme === 'hero_second' || theme === 'gold_white') {
+      // Golden spiral garland
+      const garlandPoints = [];
+      const turns = 4.2;
+      const steps = 64;
+      for (let i = 0; i <= steps; i++) {
+        const u = i / steps;
+        const y = (0.82 + u * 3.22) * scale;
+        const angle = u * turns * Math.PI * 2;
+        const wave = 1.0 + Math.cos(angle * 3.5) * 0.08;
+        const r = (1.46 * (1 - u * 0.76) * wave + 0.06) * scale;
+        garlandPoints.push(new THREE.Vector3(Math.cos(angle) * r, y, Math.sin(angle) * r));
+      }
+      const garlandCurve = new THREE.CatmullRomCurve3(garlandPoints);
+      const garlandGeo = new THREE.TubeGeometry(garlandCurve, 64, 0.042 * scale, 6, false);
+      const garlandMat = new THREE.MeshStandardMaterial({
+        color: COLORS.GOLD_METAL,
+        metalness: 0.85,
+        roughness: 0.22,
+        emissive: 0x553300,
+        emissiveIntensity: 0.35
+      });
+      treeGroup.add(new THREE.Mesh(garlandGeo, garlandMat));
+    } else if (theme === 'multicolor_silver') {
+      // Shimmering silver spiral tinsel garland
+      const garlandPoints = [];
+      const turns = 4.2;
+      const steps = 64;
+      for (let i = 0; i <= steps; i++) {
+        const u = i / steps;
+        const y = (0.80 + u * 3.22) * scale;
+        const angle = u * turns * Math.PI * 2;
+        const wave = 1.0 + Math.cos(angle * 3.5) * 0.08;
+        const r = (1.44 * (1 - u * 0.76) * wave + 0.05) * scale;
+        garlandPoints.push(new THREE.Vector3(Math.cos(angle) * r, y, Math.sin(angle) * r));
+      }
+      const garlandCurve = new THREE.CatmullRomCurve3(garlandPoints);
+      const garlandGeo = new THREE.TubeGeometry(garlandCurve, 64, 0.040 * scale, 6, false);
+      const silverGarlandMat = new THREE.MeshStandardMaterial({
+        color: 0xecf0f5,
+        metalness: 0.94,
+        roughness: 0.16,
+        emissive: 0x252a38,
+        emissiveIntensity: 0.35
+      });
+      treeGroup.add(new THREE.Mesh(garlandGeo, silverGarlandMat));
+    } else if (theme === 'candycane_red') {
+      // 12 Hanging red-white striped candy canes (zuurstokken) via InstancedMesh
+      const caneGeo = createCandyCaneGeo(scale);
+      const caneMat = new THREE.MeshStandardMaterial({
+        map: getCandyCaneTexture(),
+        roughness: 0.35,
+        metalness: 0.05
+      });
+      const caneCount = Math.min(14, branchAttachmentPoints.length);
+      const instCanes = new THREE.InstancedMesh(caneGeo, caneMat, caneCount);
+      for (let c = 0; c < caneCount; c++) {
+        const bp = branchAttachmentPoints[(c * 3) % branchAttachmentPoints.length];
+        dummy.position.set(
+          bp.tipX * 0.92 * scale,
+          (bp.tipY - 0.12) * scale,
+          bp.tipZ * 0.92 * scale
+        );
+        dummy.rotation.set(0.18 * Math.sin(c), c * 1.35, 0.18 * Math.cos(c));
+        dummy.scale.setScalar(1.0);
+        dummy.updateMatrix();
+        instCanes.setMatrixAt(c, dummy.matrix);
+      }
+      treeGroup.add(instCanes);
+    } else if (theme === 'blue_icicles') {
+      // 16 Translucent crystal icicles (ijspegels) via InstancedMesh
+      const icicleGeo = createIcicleGeo(scale);
+      const icicleMat = new THREE.MeshStandardMaterial({
+        color: 0xd6f0ff,
+        roughness: 0.12,
+        metalness: 0.10,
+        transparent: true,
+        opacity: 0.82,
+        emissive: 0x102538,
+        emissiveIntensity: 0.25
+      });
+      const icicleCount = Math.min(16, branchAttachmentPoints.length);
+      const instIcicles = new THREE.InstancedMesh(icicleGeo, icicleMat, icicleCount);
+      for (let ic = 0; ic < icicleCount; ic++) {
+        const bp = branchAttachmentPoints[(ic * 2 + 1) % branchAttachmentPoints.length];
+        dummy.position.set(
+          bp.tipX * 0.95 * scale,
+          (bp.tipY - 0.04) * scale,
+          bp.tipZ * 0.95 * scale
+        );
+        dummy.rotation.set(0.08 * Math.sin(ic), 0, 0.08 * Math.cos(ic));
+        dummy.scale.setScalar(0.85 + (ic % 3) * 0.15);
+        dummy.updateMatrix();
+        instIcicles.setMatrixAt(ic, dummy.matrix);
+      }
+      treeGroup.add(instIcicles);
+    } else if (theme === 'elf_tree') {
+      // Elfenboom decorations: hanging mini-gifts, bells & peppermints
+      const elfPropGroup = new THREE.Group();
+      const bellMat = new THREE.MeshStandardMaterial({
+        color: COLORS.GOLD_METAL,
+        metalness: 0.88,
+        roughness: 0.18,
+        emissive: 0x442200,
+        emissiveIntensity: 0.3
+      });
+      const sweetMat = new THREE.MeshStandardMaterial({
+        map: getPeppermintTexture(),
+        roughness: 0.35,
+        metalness: 0.05
+      });
+
+      // 6 hanging bells
+      const bellGeo = new THREE.CylinderGeometry(0.008 * scale, 0.032 * scale, 0.045 * scale, 8);
+      for (let i = 0; i < 6; i++) {
+        const bp = branchAttachmentPoints[(i * 6) % branchAttachmentPoints.length];
+        const bell = new THREE.Mesh(bellGeo, bellMat);
+        bell.position.set(bp.tipX * 0.90 * scale, (bp.tipY - 0.08) * scale, bp.tipZ * 0.90 * scale);
+        elfPropGroup.add(bell);
+      }
+      // 6 swirled peppermints
+      const sweetGeo = new THREE.CylinderGeometry(0.035 * scale, 0.035 * scale, 0.016 * scale, 12);
+      sweetGeo.rotateX(Math.PI / 2);
+      for (let i = 0; i < 6; i++) {
+        const bp = branchAttachmentPoints[(i * 6 + 2) % branchAttachmentPoints.length];
+        const sweet = new THREE.Mesh(sweetGeo, sweetMat);
+        sweet.position.set(bp.tipX * 0.91 * scale, (bp.tipY - 0.07) * scale, bp.tipZ * 0.91 * scale);
+        sweet.rotation.y = i * 0.8;
+        elfPropGroup.add(sweet);
+      }
+      // 6 mini hanging gifts
+      const miniGiftColors = [0xd92027, 0x1e78ff, 0x00c853, 0xffbb22, 0xab47bc, 0xff7043];
+      const miniGiftGeo = new THREE.BoxGeometry(0.07 * scale, 0.07 * scale, 0.07 * scale);
+      for (let i = 0; i < 6; i++) {
+        const bp = branchAttachmentPoints[(i * 6 + 4) % branchAttachmentPoints.length];
+        const gMat = new THREE.MeshStandardMaterial({ color: miniGiftColors[i % miniGiftColors.length], roughness: 0.4 });
+        const gift = new THREE.Mesh(miniGiftGeo, gMat);
+        gift.position.set(bp.tipX * 0.88 * scale, (bp.tipY - 0.09) * scale, bp.tipZ * 0.88 * scale);
+        gift.rotation.set(0.1, i * 0.9, 0.1);
+        elfPropGroup.add(gift);
+      }
+      treeGroup.add(elfPropGroup);
+    }
+
+    // Under-Tree Gifts (Cadeautjes onder sommige bomen)
+    if (theme === 'gold_white') {
+      group.add(createUnderTreeGift(cfg.x + 0.55 * scale, cfg.z - 0.45 * scale, 0.32 * scale, 0xffe680, 0xffffff));
+      group.add(createUnderTreeGift(cfg.x - 0.50 * scale, cfg.z + 0.40 * scale, 0.28 * scale, 0xffffff, 0xffcc33));
+    } else if (theme === 'candycane_red') {
+      group.add(createUnderTreeGift(cfg.x + 0.48 * scale, cfg.z + 0.42 * scale, 0.34 * scale, 0xd92027, 0x00c853));
+      group.add(createUnderTreeGift(cfg.x - 0.52 * scale, cfg.z - 0.38 * scale, 0.27 * scale, 0x1e7838, 0xff2222));
+    } else if (theme === 'blue_icicles') {
+      group.add(createUnderTreeGift(cfg.x + 0.52 * scale, cfg.z - 0.40 * scale, 0.30 * scale, 0x2277dd, 0xf0f8ff));
+      group.add(createUnderTreeGift(cfg.x - 0.45 * scale, cfg.z + 0.46 * scale, 0.26 * scale, 0xf0f8ff, 0x2277dd));
+    } else if (theme === 'elf_tree') {
+      group.add(createUnderTreeGift(cfg.x + 0.50 * scale, cfg.z + 0.35 * scale, 0.30 * scale, 0xffcc22, 0x9c27b0));
+      group.add(createUnderTreeGift(cfg.x - 0.48 * scale, cfg.z - 0.42 * scale, 0.26 * scale, 0x00c853, 0xd92027));
+      group.add(createUnderTreeGift(cfg.x + 0.15 * scale, cfg.z + 0.55 * scale, 0.22 * scale, 0xd92027, 0xffffff));
+    }
+
     group.add(treeGroup);
-    return { treeGroup, foliageMesh, starMesh, starMat, scale, groundY };
+    return { treeGroup, foliageMesh, starMesh, starMat, scale, groundY, cfg, theme, isVillageTree };
   }
 
-  const mainTree = buildDecoratedTree(COORDS.mainChristmasTree, true);
-  const secondTree = buildDecoratedTree(COORDS.secondChristmasTree, false);
+  const mainTree = buildDecoratedTree(COORDS.mainChristmasTree, { isClickableMain: true, theme: 'hero_main' });
+  const secondTree = buildDecoratedTree(COORDS.secondChristmasTree, { isClickableMain: false, theme: 'hero_second' });
 
-  // 3. Blinking Christmas Lights across ALL 12 Trees (2 hero trees + all 10 wild pines)
+  // Build the 5 Decorated Christmas Trees on the Elfenplein
+  const villageTreesConfigs = COORDS.elfVillageChristmasTrees || [];
+  const villageTrees = villageTreesConfigs.map((cfg, idx) =>
+    buildDecoratedTree(cfg, { isVillageTree: true, theme: cfg.theme, treeIndex: idx })
+  );
+
+  // 4. Blinking Christmas Lights across ALL Trees (2 hero trees + 10 wild pines + 5 village trees)
   const bulbSpecs = [];
 
   function addBulbsForHeroTree(cx, cz, scale, count, treeId) {
-    const baseY = getTerrainHeight(cx, cz);
+    const baseY = getGroundHeight(cx, cz);
     // Branch-tip bulbs on all irregular boughs
     branchAttachmentPoints.forEach((bp, bIdx) => {
       const u = Math.max(0, Math.min(1, (bp.tipY - 0.8) / 3.4));
@@ -500,6 +858,7 @@ export function createTrees(scene, interaction, audio) {
         u,
         indexInTree: bIdx,
         treeId,
+        theme: null,
         phase: bIdx * 0.55 + treeId * 1.9,
         baseColorHex: COLORS.BULB_PALETTE[(bIdx + treeId) % COLORS.BULB_PALETTE.length]
       });
@@ -520,8 +879,61 @@ export function createTrees(scene, interaction, audio) {
         u,
         indexInTree: idxInTree,
         treeId,
+        theme: null,
         phase: idxInTree * 0.65 + treeId * 1.9,
         baseColorHex: COLORS.BULB_PALETTE[(idxInTree + treeId) % COLORS.BULB_PALETTE.length]
+      });
+    }
+  }
+
+  function addBulbsForVillageTree(cx, cz, scale, count, treeId, theme) {
+    const baseY = getGroundHeight(cx, cz);
+
+    const getThemeBulbBaseColor = (th, idx) => {
+      if (th === 'gold_white') return 0xfff2d6;
+      if (th === 'candycane_red') return idx % 2 === 0 ? 0xff2222 : 0xffffff;
+      if (th === 'blue_icicles') return idx % 2 === 0 ? 0x55ccff : 0xf2f8ff;
+      if (th === 'elf_tree') {
+        const elfPalette = [0xffdd33, 0x33ff77, 0xff3399, 0x33ddff];
+        return elfPalette[idx % elfPalette.length];
+      }
+      return COLORS.BULB_PALETTE[idx % COLORS.BULB_PALETTE.length];
+    };
+
+    // Branch-tip bulbs on all irregular boughs
+    branchAttachmentPoints.forEach((bp, bIdx) => {
+      const u = Math.max(0, Math.min(1, (bp.tipY - 0.8) / 3.4));
+      bulbSpecs.push({
+        x: cx + bp.tipX * 0.97 * scale,
+        y: baseY + (bp.tipY + 0.02) * scale,
+        z: cz + bp.tipZ * 0.97 * scale,
+        u,
+        indexInTree: bIdx,
+        treeId,
+        theme,
+        phase: bIdx * 0.58 + treeId * 1.7,
+        baseColorHex: getThemeBulbBaseColor(theme, bIdx)
+      });
+    });
+
+    // Plus spiral string bulbs weaving around branches
+    for (let i = 0; i < count; i++) {
+      const u = (i + 0.3) / count;
+      const y = baseY + (0.80 + u * 3.25) * scale;
+      const angle = u * 6.2 * Math.PI * 2 + treeId * 1.4;
+      const lobeMod = 1.0 + Math.cos(angle * 3.5) * 0.1;
+      const r = (1.44 * (1 - u * 0.76) * lobeMod + 0.05) * scale;
+      const idxInTree = branchAttachmentPoints.length + i;
+      bulbSpecs.push({
+        x: cx + Math.cos(angle) * r,
+        y,
+        z: cz + Math.sin(angle) * r,
+        u,
+        indexInTree: idxInTree,
+        treeId,
+        theme,
+        phase: idxInTree * 0.65 + treeId * 1.7,
+        baseColorHex: getThemeBulbBaseColor(theme, idxInTree)
       });
     }
   }
@@ -546,6 +958,7 @@ export function createTrees(scene, interaction, audio) {
         u,
         indexInTree: idxInTree,
         treeId,
+        theme: null,
         phase: idxInTree * 0.62 + treeId * 1.7,
         baseColorHex: COLORS.BULB_PALETTE[(idxInTree + treeId) % COLORS.BULB_PALETTE.length]
       });
@@ -567,6 +980,7 @@ export function createTrees(scene, interaction, audio) {
         u,
         indexInTree: idxInTree,
         treeId,
+        theme: null,
         phase: idxInTree * 0.62 + treeId * 1.7,
         baseColorHex: COLORS.BULB_PALETTE[(bIdx * 2 + treeId + 1) % COLORS.BULB_PALETTE.length]
       });
@@ -578,6 +992,10 @@ export function createTrees(scene, interaction, audio) {
   addBulbsForHeroTree(COORDS.secondChristmasTree.x, COORDS.secondChristmasTree.z, secondTree.scale, 28, 1);
   wildPineMatrices.forEach((treeMat, idx) => {
     addBulbsForWildPine(treeMat, idx + 2);
+  });
+  villageTrees.forEach((vt, idx) => {
+    const cfg = vt.cfg;
+    addBulbsForVillageTree(cfg.x, cfg.z, vt.scale, 26, 20 + idx, vt.theme);
   });
 
   const totalBulbs = bulbSpecs.length;
@@ -599,7 +1017,7 @@ export function createTrees(scene, interaction, audio) {
   });
   group.add(instBulbs);
 
-  // 4. Clickable Main Christmas Tree Pattern Switcher
+  // 5. Clickable Tree Interactions & Camera Focus
   const PATTERN_NAMES = [
     'Klassieke Twinkeling ✨',
     'Noordpool Spiraalgolf 🌀',
@@ -651,13 +1069,43 @@ export function createTrees(scene, interaction, audio) {
         focusHeightOffset: 0.45
       });
 
+      // Register all 5 village trees for smooth camera focus and double-click navigation
+      villageTrees.forEach((vt, vIdx) => {
+        const cfg = vt.cfg;
+        const tipPos = new THREE.Vector3(cfg.x, vt.groundY + cfg.height + 0.6, cfg.z);
+        interaction.registerFocusable(vt.treeGroup, {
+          id: cfg.id,
+          label: `Elfenplein Kerstboom: ${cfg.name} 🎄`,
+          focusTarget: new THREE.Vector3(cfg.x, vt.groundY + cfg.height * 0.5, cfg.z),
+          focusDistance: 4.8,
+          focusHeightOffset: 0.4
+        });
+
+        if (interaction.registerClickable) {
+          interaction.registerClickable(vt.treeGroup, {
+            id: cfg.id,
+            label: `Elfenplein Kerstboom: ${cfg.name} 🎄`,
+            glowMeshes: [vt.starMesh, vt.foliageMesh],
+            focusTarget: new THREE.Vector3(cfg.x, vt.groundY + cfg.height * 0.5, cfg.z),
+            focusDistance: 4.8,
+            focusHeightOffset: 0.4,
+            onClick: () => {
+              interaction.showTooltip(`Elfenplein Kerstboom: ${cfg.name} ✨`, tipPos, 3.2);
+              if (audio && typeof audio.playChime === 'function') {
+                audio.playChime(1.1 + vIdx * 0.12);
+              }
+            }
+          });
+        }
+      });
+
       const resolveWildPineFocus = (hit) => {
         const idx =
           hit.instanceId !== undefined && hit.instanceId < allPines.length
             ? hit.instanceId
             : 0;
         const p = allPines[idx];
-        const gy = getTerrainHeight(p.x, p.z);
+        const gy = getGroundHeight(p.x, p.z);
         return {
           target: new THREE.Vector3(p.x, gy + 2.1 * p.scale, p.z),
           distance: 4.8 * p.scale,
@@ -677,9 +1125,15 @@ export function createTrees(scene, interaction, audio) {
   }
 
   function update(delta, elapsed) {
-    // Rotate & pulse top stars
+    // Rotate & pulse top stars of all decorated trees
     mainTree.starMesh.rotation.y = elapsed * 1.2;
     secondTree.starMesh.rotation.y = -elapsed * 1.0;
+
+    villageTrees.forEach((vt, idx) => {
+      if (vt.starMesh) {
+        vt.starMesh.rotation.y = elapsed * (0.9 + (idx % 3) * 0.3) * (idx % 2 === 0 ? 1 : -1);
+      }
+    });
 
     if (starBoostTimer > 0) {
       starBoostTimer = Math.max(0, starBoostTimer - delta);
@@ -690,37 +1144,77 @@ export function createTrees(scene, interaction, audio) {
       mainTree.starMesh.scale.setScalar(1.0);
     }
 
-    // Update all blinking Christmas bulbs across all 12 trees (compensated for lower scene exposure)
+    // Update all blinking Christmas bulbs across all trees (compensated for lower scene exposure)
     const exposureComp = 1.46;
     for (let i = 0; i < totalBulbs; i++) {
       const b = bulbSpecs[i];
-      const pat = b.treeId === 0 ? currentPattern : (currentPattern + b.treeId) % 4;
-      let brightness = 1.0;
 
-      if (pat === 0) {
-        // Twinkle
-        const wave = 0.5 + 0.5 * Math.sin(elapsed * 4.2 + b.phase);
-        brightness = (0.2 + Math.pow(wave, 2.2) * 2.2) * exposureComp;
-        tempColor.setHex(b.baseColorHex);
-      } else if (pat === 1) {
-        // Spiral chase wave
-        const wave = 0.5 + 0.5 * Math.sin(b.u * 18.0 - elapsed * 6.5 + b.treeId);
-        brightness = (0.15 + Math.pow(wave, 3.0) * 2.5) * exposureComp;
-        tempColor.setHex(b.baseColorHex);
-      } else if (pat === 2) {
-        // Candy-cane red / white / gold alternation
-        const slot = (b.indexInTree + Math.floor(elapsed * 3.2)) % 3;
-        const hex = slot === 0 ? 0xff2222 : slot === 1 ? 0xffffff : 0xffcc33;
-        tempColor.setHex(hex);
-        brightness = 1.85 * exposureComp;
+      if (b.theme) {
+        // Unique animated blinking pattern and phase per village tree theme
+        if (b.theme === 'gold_white') {
+          // Warm white twinkling candle shimmer
+          const wave = 0.5 + 0.5 * Math.sin(elapsed * 3.8 + b.phase);
+          const brightness = (0.32 + Math.pow(wave, 1.8) * 1.9) * exposureComp;
+          tempColor.setHex(0xfff2d6);
+          tempColor.multiplyScalar(brightness);
+        } else if (b.theme === 'candycane_red') {
+          // Candy-cane red / crisp white alternating wave
+          const slot = (b.indexInTree + Math.floor(elapsed * 3.4)) % 2;
+          const wave = 0.5 + 0.5 * Math.sin(elapsed * 5.0 + b.phase);
+          const hex = slot === 0 ? 0xff2222 : 0xffffff;
+          tempColor.setHex(hex);
+          tempColor.multiplyScalar((0.45 + wave * 1.7) * exposureComp);
+        } else if (b.theme === 'multicolor_silver') {
+          // Multicolor spiral rainbow chase wave
+          const wave = 0.5 + 0.5 * Math.sin(b.u * 14.0 - elapsed * 5.8 + b.phase);
+          const slot = (b.indexInTree + Math.floor(elapsed * 2.5)) % COLORS.BULB_PALETTE.length;
+          tempColor.setHex(COLORS.BULB_PALETTE[slot]);
+          tempColor.multiplyScalar((0.30 + Math.pow(wave, 2.5) * 2.2) * exposureComp);
+        } else if (b.theme === 'blue_icicles') {
+          // Cool ice-blue and crisp diamond-white twinkling lights with sudden diamond glints
+          const isFrost = (b.indexInTree % 2 === 0);
+          const wave = 0.5 + 0.5 * Math.sin(elapsed * 4.2 + b.phase);
+          const glint = Math.pow(Math.max(0, Math.sin(elapsed * 2.6 + b.phase * 3.1)), 10.0) * 2.6;
+          tempColor.setHex(isFrost ? 0x55ccff : 0xf2f8ff);
+          tempColor.multiplyScalar((0.30 + wave * 1.4 + glint) * exposureComp);
+        } else if (b.theme === 'elf_tree') {
+          // Cheerful, playful fairy lights
+          const elfColors = [0xffdd33, 0x33ff77, 0xff3399, 0x33ddff];
+          const wave = 0.5 + 0.5 * Math.sin(elapsed * 6.5 + b.phase * 1.4);
+          tempColor.setHex(elfColors[(b.indexInTree + Math.floor(elapsed * 2.2)) % elfColors.length]);
+          tempColor.multiplyScalar((0.38 + wave * 1.8) * exposureComp);
+        }
       } else {
-        // Synchronized festive pulse
-        const pulse = 0.5 + 0.5 * Math.sin(elapsed * 8.5 + b.u * 4.0);
-        tempColor.setHex(b.baseColorHex);
-        brightness = (0.35 + pulse * 2.4) * exposureComp;
+        // Hero trees and wild pines patterns
+        const pat = b.treeId === 0 ? currentPattern : (currentPattern + b.treeId) % 4;
+        let brightness = 1.0;
+
+        if (pat === 0) {
+          // Twinkle
+          const wave = 0.5 + 0.5 * Math.sin(elapsed * 4.2 + b.phase);
+          brightness = (0.2 + Math.pow(wave, 2.2) * 2.2) * exposureComp;
+          tempColor.setHex(b.baseColorHex);
+        } else if (pat === 1) {
+          // Spiral chase wave
+          const wave = 0.5 + 0.5 * Math.sin(b.u * 18.0 - elapsed * 6.5 + b.treeId);
+          brightness = (0.15 + Math.pow(wave, 3.0) * 2.5) * exposureComp;
+          tempColor.setHex(b.baseColorHex);
+        } else if (pat === 2) {
+          // Candy-cane red / white / gold alternation
+          const slot = (b.indexInTree + Math.floor(elapsed * 3.2)) % 3;
+          const hex = slot === 0 ? 0xff2222 : slot === 1 ? 0xffffff : 0xffcc33;
+          tempColor.setHex(hex);
+          brightness = 1.85 * exposureComp;
+        } else {
+          // Synchronized festive pulse
+          const pulse = 0.5 + 0.5 * Math.sin(elapsed * 8.5 + b.u * 4.0);
+          tempColor.setHex(b.baseColorHex);
+          brightness = (0.35 + pulse * 2.4) * exposureComp;
+        }
+
+        tempColor.multiplyScalar(brightness);
       }
 
-      tempColor.multiplyScalar(brightness);
       instBulbs.setColorAt(i, tempColor);
     }
     instBulbs.instanceColor.needsUpdate = true;

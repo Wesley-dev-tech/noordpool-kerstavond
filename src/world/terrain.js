@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { COLORS, COORDS, GROUPS } from '../config.js';
 import {
   fbm2D,
+  getGroundHeight,
   getTerrainHeight,
   createSnowNormalAndSparkleMaps,
   createIceLakeTextures
@@ -344,7 +345,7 @@ export function createTerrain(scene, interaction = null) {
   for (let i = 0; i < posAttr.count; i++) {
     const x = posAttr.getX(i);
     const z = posAttr.getZ(i);
-    posAttr.setY(i, getTerrainHeight(x, z));
+    posAttr.setY(i, getGroundHeight(x, z));
   }
   geo.computeVertexNormals();
 

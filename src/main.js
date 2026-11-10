@@ -20,6 +20,7 @@ import { createSantaCouple } from './actors/santa-couple.js';
 import { createElfVillage } from './world/elf-village.js';
 import { createPath } from './world/path-v2.js';
 import { createElves } from './actors/elves.js';
+import { createRailway } from './world/railway.js';
 import { createObstacleDebugger } from './world/obstacles.js';
 import { createHUD } from './ui/hud.js';
 import { createAudioManager } from './ui/audio.js';
@@ -62,6 +63,7 @@ const santaCoupleSys = createSantaCouple(rendererSys.scene, interactionSys, audi
 const elfVillageSys = createElfVillage(rendererSys.scene, interactionSys, audioSys);
 const pathSys = createPath(rendererSys.scene);
 const elvesSys = createElves(rendererSys.scene, interactionSys, audioSys);
+const railwaySys = createRailway(rendererSys.scene, interactionSys, audioSys);
 const obstacleDebugSys = createObstacleDebugger(rendererSys.scene, () => [elvesSys.elves[0], elvesSys.elves[1]]);
 
 // Expose systems for diagnostics / interactive testing
@@ -77,6 +79,7 @@ window.__WORLD__ = {
   elfVillageSys,
   pathSys,
   elvesSys,
+  railwaySys,
   obstacleDebugSys
 };
 
@@ -312,6 +315,24 @@ if (viewParam === 'snowman') {
     new THREE.Vector3(-16.8, gy + 1.2, 4.8),
     new THREE.Vector3(-14.50, gy + 1.1, 2.50)
   );
+} else if (viewParam === 'station' || viewParam === 'kersthalte' || viewParam === 'perron') {
+  const gy = getTerrainHeight(-14.6, 2.2);
+  cameraSys.teleport(
+    new THREE.Vector3(-8.6, gy + 2.0, 1.0),
+    new THREE.Vector3(-14.6, gy + 1.2, 2.2)
+  );
+} else if (viewParam === 'overweg' || viewParam === 'crossing') {
+  const gy = getTerrainHeight(-10.8, 4.2);
+  cameraSys.teleport(
+    new THREE.Vector3(-7.8, gy + 2.0, 6.8),
+    new THREE.Vector3(-10.8, gy + 0.6, 4.2)
+  );
+} else if (viewParam === 'railway' || viewParam === 'spoor') {
+  const gy = getTerrainHeight(0, 0);
+  cameraSys.teleport(
+    new THREE.Vector3(4.0, gy + 38.0, 42.0),
+    new THREE.Vector3(-2.0, gy + 1.0, 0.0)
+  );
 } else if (viewParam === 'overview' || viewParam === 'default') {
   cameraSys.teleport(
     new THREE.Vector3(COORDS.cameraDefaultPos.x, COORDS.cameraDefaultPos.y, COORDS.cameraDefaultPos.z),
@@ -378,12 +399,14 @@ const qualitySys = createQualityManager('high', (preset, levelName) => {
   sleighSys.setQuality(preset);
   workshopSys.setQuality(preset, levelName);
   elfVillageSys.setQuality(preset, levelName);
+  trainSys.setQuality(preset);
 });
 
 // Apply initial high-preset configuration to all lights and modules
 lightsSys.setQuality(initialPreset, 'high');
 workshopSys.setQuality(initialPreset, 'high');
 elfVillageSys.setQuality(initialPreset, 'high');
+trainSys.setQuality(initialPreset);
 
 const qualityParam = urlParams.get('quality');
 if (qualityParam && ['low', 'medium', 'high'].includes(qualityParam)) {
@@ -395,6 +418,7 @@ if (urlParams.get('fps') === '1' || urlParams.get('fps') === 'true') {
 
 const hudSys = createHUD({
   onQualitySelect: (level) => qualitySys.setLevel(level, true),
+  onToggleTrain: () => trainSys.togglePause(),
   onToggleAudio: () => audioSys.toggle(),
   onToggleFps: () => qualitySys.toggleFpsVisible(),
   onToggleDebug: () => obstacleDebugSys.toggle(),
@@ -414,6 +438,11 @@ const hudSys = createHUD({
     );
   }
 });
+
+trainSys.onHudStateChange((isPaused) => {
+  hudSys.setTrainButtonState(isPaused);
+});
+hudSys.setTrainButtonState(trainSys.isPaused());
 
 // Hide loading screen once scene is compiled
 if (viewParam) {
@@ -471,6 +500,7 @@ function animate() {
   elfVillageSys.update(delta, totalElapsed);
   pathSys.update(delta, totalElapsed);
   elvesSys.update(delta, totalElapsed);
+  railwaySys.update(delta, totalElapsed);
   obstacleDebugSys.update(delta, totalElapsed);
 
   interactionSys.update(delta, totalElapsed);

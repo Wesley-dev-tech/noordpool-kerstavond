@@ -205,17 +205,17 @@ export const OBSTACLES = [
     id: 'villageTree_5',
     name: 'Elfenplein-kerstboom 5 (Elfenboom: Cadeautjes & Snoep)',
     category: 'tree',
-    x: -14.50,
-    z: 2.50,
+    x: -19.50,
+    z: 3.00,
     radius: 0.95
   },
   // Lit Pines
   { id: 'litPine_1', name: 'Verlichte Den 1', category: 'tree', x: 7.5, z: -8.5, radius: 1.40 },
-  { id: 'litPine_2', name: 'Verlichte Den 2', category: 'tree', x: -17.0, z: -3.5, radius: 1.50 },
+  { id: 'litPine_2', name: 'Verlichte Den 2', category: 'tree', x: -21.5, z: -4.5, radius: 1.50 },
   { id: 'litPine_3', name: 'Verlichte Den 3', category: 'tree', x: 11.5, z: -3.8, radius: 1.30 },
   { id: 'litPine_4', name: 'Verlichte Den 4', category: 'tree', x: -2.5, z: -13.5, radius: 1.50 },
   // Forest Pines
-  { id: 'forestPine_1', name: 'Bosden 1', category: 'tree', x: -17.0, z: -11.0, radius: 1.50 },
+  { id: 'forestPine_1', name: 'Bosden 1', category: 'tree', x: -22.0, z: -11.5, radius: 1.50 },
   { id: 'forestPine_2', name: 'Bosden 2', category: 'tree', x: -11.0, z: -16.0, radius: 1.60 },
   { id: 'forestPine_3', name: 'Bosden 3', category: 'tree', x: 4.0, z: -17.0, radius: 1.40 },
   { id: 'forestPine_4', name: 'Bosden 4', category: 'tree', x: 14.0, z: -12.0, radius: 1.50 },
@@ -396,6 +396,64 @@ export const OBSTACLES = [
     x: -17.3,
     z: 15.9,
     radius: 0.45
+  },
+
+  // 11. Treinspoor & Noordpool Station (Railway & Christmas Station)
+  {
+    id: 'stationShelter',
+    name: 'Wachthuisje Noordpool Station',
+    category: 'building',
+    x: -16.2,
+    z: 1.0,
+    radius: 2.10
+  },
+  {
+    id: 'stationPlatform',
+    name: 'Perron Noordpool Station',
+    category: 'building',
+    x: -14.6,
+    z: 2.2,
+    radius: 1.80
+  },
+  {
+    id: 'stationBench',
+    name: 'Stationsbankje',
+    category: 'prop',
+    x: -14.8,
+    z: 1.8,
+    radius: 0.80
+  },
+  {
+    id: 'stationLuggage',
+    name: 'Stapel koffers en cadeaus',
+    category: 'prop',
+    x: -15.5,
+    z: 2.8,
+    radius: 0.90
+  },
+  {
+    id: 'railwaySignNorth',
+    name: 'Andreaskruis Overweg (Noordzijde)',
+    category: 'prop',
+    x: -10.3,
+    z: 5.0,
+    radius: 0.50
+  },
+  {
+    id: 'railwaySignSouth',
+    name: 'Andreaskruis Overweg (Zuidzijde)',
+    category: 'prop',
+    x: -11.6,
+    z: 3.3,
+    radius: 0.50
+  },
+  {
+    id: 'railwayTrackWest',
+    name: 'Treinspoor (Westelijke Baan)',
+    category: 'prop',
+    x: -16.8,
+    z: -3.8,
+    radius: 1.60
   }
 ];
 

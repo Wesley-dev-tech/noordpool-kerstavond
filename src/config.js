@@ -52,6 +52,37 @@ export const PATH_WAYPOINTS = Object.freeze([
   { x: 2.6, y: 0, z: -2.3 }    // Festive arrival in front of Great Christmas tree
 ]);
 
+export const RAILWAY_WAYPOINTS = Object.freeze([
+  { x: -50.36, y: 0, z: 15.19 }  // 0: Station Kersthalte stop (Elf Village side),
+  { x: -52.79, y: 0, z: 7.52 },
+  { x: -53.13, y: 0, z: -0.50 },
+  { x: -51.25, y: 0, z: -8.46 },
+  { x: -47.52, y: 0, z: -16.09 },
+  { x: -42.01, y: 0, z: -23.21 },
+  { x: -34.40, y: 0, z: -29.10 },
+  { x: -24.84, y: 0, z: -32.61 },
+  { x: -14.48, y: 0, z: -33.07 },
+  { x: -4.69, y: 0, z: -31.14 },
+  { x: 4.11, y: 0, z: -28.12 },
+  { x: 12.38, y: 0, z: -24.69 },
+  { x: 20.29, y: 0, z: -20.43 },
+  { x: 27.09, y: 0, z: -14.71 },
+  { x: 31.87, y: 0, z: -7.56 },
+  { x: 34.37, y: 0, z: 0.44 },
+  { x: 34.71, y: 0, z: 8.79 },
+  { x: 32.71, y: 0, z: 17.06 },
+  { x: 27.99, y: 0, z: 24.55 },
+  { x: 20.83, y: 0, z: 30.47 },
+  { x: 12.33, y: 0, z: 34.65 },
+  { x: 3.42, y: 0, z: 37.68 },
+  { x: -5.87, y: 0, z: 39.93 },
+  { x: -15.75, y: 0, z: 40.82 },
+  { x: -25.68, y: 0, z: 39.32 },
+  { x: -34.43, y: 0, z: 35.15 },
+  { x: -41.26, y: 0, z: 29.16 },
+  { x: -46.43, y: 0, z: 22.38 }
+]);
+
 export const COORDS = Object.freeze({
   northPole: { x: 0, y: 0, z: 0 },
   workshop: { x: -10, y: 0, z: -7, rotY: 0.42 },
@@ -61,6 +92,8 @@ export const COORDS = Object.freeze({
   iceLake: { x: 8.5, y: 0.02, z: 4.5 },
   mainChristmasTree: { x: 4.5, y: 0, z: -3.5, height: 5.2 },
   secondChristmasTree: { x: -4.8, y: 0, z: -9.2, height: 4.4 },
+  station: { x: -49.6, y: 0, z: 15.2 },
+  railwayCrossing: { x: -50.4, y: 0, z: 15.2 },
   elfVillage: {
     squareCenter: { x: -18.0, y: 0, z: 8.5 },
     clearanceRadius: 18.0
@@ -101,20 +134,20 @@ export const COORDS = Object.freeze({
     {
       id: 'villageTree_5',
       name: 'Elfenboom: Cadeautjes & Snoep',
-      x: -14.50,
-      z: 2.50,
+      x: -19.50,
+      z: 3.00,
       height: 2.45,
       theme: 'elf_tree'
     }
   ],
   litPines: [
     { x: 7.5, y: 0, z: -8.5, scale: 1.05 },
-    { x: -17.0, y: 0, z: -3.5, scale: 1.15 },
+    { x: -21.5, y: 0, z: -4.5, scale: 1.15 },
     { x: 11.5, y: 0, z: -3.8, scale: 0.95 },
     { x: -2.5, y: 0, z: -13.5, scale: 1.2 }
   ],
   forestPines: [
-    { x: -17.0, y: 0, z: -11.0, scale: 1.25 },
+    { x: -22.0, y: 0, z: -11.5, scale: 1.25 },
     { x: -11.0, y: 0, z: -16.0, scale: 1.35 },
     { x: 4.0, y: 0, z: -17.0, scale: 1.1 },
     { x: 14.0, y: 0, z: -12.0, scale: 1.3 },
